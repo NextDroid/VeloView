@@ -54,7 +54,7 @@
 #include <vtkUnsignedIntArray.h>
 #include <vtkUnsignedShortArray.h>
 
-#include <vtk_libproj4.h>
+#include <vtk_libproj.h>
 #include "NMEAParser.h"
 #include "statistics.h"
 
