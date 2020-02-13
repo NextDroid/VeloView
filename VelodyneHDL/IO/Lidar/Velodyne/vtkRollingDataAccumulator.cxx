@@ -112,3 +112,7 @@ bool vtkRollingDataAccumulator::getAlignedRollingData(std::vector<unsigned char>
   memcpy(&data[0], &accumulatedValue[beginPosition[idRollingSequence]], expectedLength);
   return true;
 }
+
+GpsTopOfHourValues vtkRollingDataAccumulator::getGpsTopOfHourValues() {
+  return this->gpsTopOfHourValues;
+}
