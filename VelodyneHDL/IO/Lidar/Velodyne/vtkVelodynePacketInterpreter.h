@@ -60,6 +60,8 @@ public:
     double focalSlope[HDL_MAX_NUM_LASERS], double minIntensity[HDL_MAX_NUM_LASERS],
     double maxIntensity[HDL_MAX_NUM_LASERS]);
 
+  double ComputeGpsTopOfHourTime();
+
   vtkSetMacro(ShouldAddDualReturnArray, bool)
 
   vtkGetMacro(HasDualReturn, bool)

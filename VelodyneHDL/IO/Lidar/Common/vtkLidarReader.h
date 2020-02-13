@@ -94,6 +94,9 @@ protected:
   //! libpcap wrapped reader which enable to get the raw pcap packet from the pcap file
   vtkPacketFileReader* Reader = nullptr;
 
+  // gpsTopOfHourTime for when position packets are not used
+  double gpsTopOfHourTime;
+
 private:
   /**
    * @brief ReadFrameInformation read the whole pcap and create a frame index.

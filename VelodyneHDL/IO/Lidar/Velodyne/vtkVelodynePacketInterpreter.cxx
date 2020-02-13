@@ -1488,6 +1488,68 @@ void vtkVelodynePacketInterpreter::PreProcessPacket(unsigned char const * data, 
 }
 
 //-----------------------------------------------------------------------------
+double vtkVelodynePacketInterpreter::ComputeGpsTopOfHourTime()
+{
+  auto gpsTohValues = this->rollingCalibrationData->getGpsTopOfHourValues();
+
+  /*typedef std::chrono::duration<double> seconds;
+
+  // Note: Values taken from: https://www.ietf.org/timezones/data/leap-seconds.list (timestamps converted to UTC and only using times after year 2000)
+  std::vector<double> leapSecondTimestamp = {1136073600, 1230768000, 1341100800, 1435708800, 1483228800};
+  std::vector<int> leapSecondCount = {33, 34, 35, 36, 37};
+
+  double gpsTohTime = 0;
+
+  std::cout << "Computing GPS Toh Timestamp: " << std::endl;
+  std::cout << "GPS signal status: " << tohValues.signalStatus << std::endl;
+
+  if (tohValues.allValuesSet()) {
+
+    int y = static_cast<uint8_t >(tohValues.year) + 2000; // years since 2000 (see velodyne manual p. 32)
+    int m = static_cast<uint8_t>(tohValues.month);        // month in the current year (not zero-indexed)
+    int d = static_cast<uint8_t>(tohValues.day);          // day of the month
+    int h = static_cast<uint8_t>(tohValues.hour);         // hour of the day
+
+    // Create string timestamp:
+    std::stringstream ss;
+    ss << setfill('0') << setw(2) << m << "/" << setfill('0') << setw(2) << d << "/" << y << " " << setfill('0') << setw(2) << h;
+    std::cout << ss.str() << std::endl;
+
+    std::tm t = {0};
+    ss >> std::get_time(&t, "%D %H");
+
+//    // Debug:
+//    std::cout << "Time (TM): \n" << "year: " << t.tm_year << "\n" << "month: " << t.tm_mon << "\n" << "day: " << t.tm_mday << "\n" << "hour: " << t.tm_hour << std::endl;
+
+    auto utctime = std::chrono::seconds(timegm(&t));
+    gpsTohTime = utctime.count() - 315964800.0; // 315964800 is the number of seconds between Jan 1, 1970 and Jan 1, 1900
+
+    // Get number of leap seconds:
+    int idx = 0;
+    while ( utctime.count() > leapSecondTimestamp[idx]) {
+      idx++;
+    }
+    idx -= 1; // Decrement to get the greatest leapSecondTimestamp that is less than the utctime
+    idx = std::max(idx, 0);
+    idx = std::min(idx, static_cast<int>(leapSecondCount.size()-1));
+
+    std::cout << std::setprecision(std::numeric_limits<double>::max_digits10) << "utctime (sec): " << utctime.count() << std::endl;
+    std::cout << std::setprecision(std::numeric_limits<double>::max_digits10) << "gpstime (sec): " << gpsTohTime << std::endl;
+    std::cout << "Idx: " << idx << std::endl;
+
+    gpsTohTime += leapSecondCount[idx] - 19;   // 19 leap seconds existed at the start of GPS time on Jan 1, 1980
+    std::cout << std::setprecision(std::numeric_limits<double>::max_digits10) << "new gpstime (sec): " << gpsTohTime << std::endl;
+
+  } else {
+      std::cerr << "Could not compute GPS Timestamp" << std::endl;
+  }
+
+  return gpsTohTime;*/ // milliseconds
+
+  return 0;
+}
+
+//-----------------------------------------------------------------------------
 bool vtkVelodynePacketInterpreter::CheckReportedSensorAndCalibrationFileConsistent(const HDLDataPacket* dataPacket)
 {
   // Get the number of laser from sensor type
