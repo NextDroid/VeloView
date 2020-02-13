@@ -34,6 +34,11 @@ void vtkRollingDataAccumulator::clear()
 
 void vtkRollingDataAccumulator::appendData(TypeValueDataPair valuePair)
 {
+    // Don't accumulate more than max amount (limit memory usage)
+  if (this->accumulatedData.size() > this->expectedLength * this->maxNumRounds) {
+    return;
+  }
+
   if (valuePair.dataType == this->beginMarkerValuePair.dataType &&
     valuePair.dataValue == this->beginMarkerValuePair.dataValue)
   {
@@ -42,6 +47,24 @@ void vtkRollingDataAccumulator::appendData(TypeValueDataPair valuePair)
   this->accumulatedData.push_back(valuePair);
   this->accumulatedDataType.push_back(valuePair.dataType);
   this->accumulatedValue.push_back(valuePair.dataValue);
+
+  // Store Values needed to compute gps top-of-hour timestamp:
+  if (valuePair.dataType == 'G' && !this->gpsTopOfHourValues.signalStatusSet) {
+    this->gpsTopOfHourValues.signalStatus = static_cast<unsigned char>(valuePair.dataValue);
+    this->gpsTopOfHourValues.signalStatusSet = true;
+  } else if (valuePair.dataType == 'Y' && !this->gpsTopOfHourValues.yearSet) {
+    this->gpsTopOfHourValues.year = static_cast<uint8_t>(valuePair.dataValue);
+    this->gpsTopOfHourValues.yearSet = true;
+  } else if (valuePair.dataType == 'N' && !this->gpsTopOfHourValues.monthSet) {
+    this->gpsTopOfHourValues.month = static_cast<uint8_t>(valuePair.dataValue);
+    this->gpsTopOfHourValues.monthSet= true;
+  } else if (valuePair.dataType == 'D' && !this->gpsTopOfHourValues.daySet) {
+    this->gpsTopOfHourValues.day = static_cast<uint8_t>(valuePair.dataValue);
+    this->gpsTopOfHourValues.daySet = true;
+  } else if (valuePair.dataType == 'H' && !this->gpsTopOfHourValues.hourSet) {
+    this->gpsTopOfHourValues.hour = static_cast<uint8_t>(valuePair.dataValue);
+    this->gpsTopOfHourValues.hourSet = true;
+  }
 }
 bool vtkRollingDataAccumulator::areRollingDataReady() const
 {
