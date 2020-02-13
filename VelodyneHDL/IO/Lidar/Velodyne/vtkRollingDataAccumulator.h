@@ -13,6 +13,8 @@
 // limitations under the License.
 #include "vtkObject.h"
 #include <vector>
+#include <map>
+#include "vtkDataPacket.h"
 
 #ifndef VTKROLLINGDATAACCUMULATOR_H
 #define VTKROLLINGDATAACCUMULATOR_H
@@ -29,6 +31,23 @@ struct TypeValueDataPair
   }
 };
 
+struct GpsTopOfHourValues {
+  unsigned char signalStatus;
+  uint8_t year;
+  uint8_t month;
+  uint8_t day;
+  uint8_t hour;
+  bool signalStatusSet = false;
+  bool yearSet = false;
+  bool monthSet = false;
+  bool daySet = false;
+  bool hourSet = false;
+
+  bool allValuesSet() const {
+    return signalStatusSet && yearSet && monthSet && daySet && hourSet;
+  }
+};
+
 class vtkRollingDataAccumulator
 {
 public:
@@ -40,6 +59,9 @@ public:
   bool getGoodSequenceId(int& idRollingSequence) const;
   bool getAlignedRollingData(std::vector<unsigned char>& data) const;
   void clear();
+
+  GpsTopOfHourValues getGpsTopOfHourValues();
+
   vtkRollingDataAccumulator();
   ~vtkRollingDataAccumulator();
 
@@ -55,9 +77,12 @@ protected:
   std::vector<unsigned char> accumulatedValue;
   std::vector<long> beginPosition;
 
+  GpsTopOfHourValues gpsTopOfHourValues;
+
 private:
-  static const long expectedLength = 4160;
+  static const long expectedLength = 4160;  // Takes ~1 second for Velodyne to transmit all status byte data
   static const int numberOfRoundNeeded = 3;
+  static const long maxNumRounds = expectedLength * 600; // 600 seconds worth of accumulation, should be greater than numberOfRoundNeeded
   static const int byteBeforeMarker = 6;
   const TypeValueDataPair beginMarkerValuePair;
 };
