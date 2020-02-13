@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "vtkRollingDataAccumulator.h"
+#include <algorithm>
 
 vtkRollingDataAccumulator::vtkRollingDataAccumulator()
   : beginMarkerValuePair(0, '5', '#')

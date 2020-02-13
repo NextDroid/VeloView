@@ -82,7 +82,7 @@ protected:
 private:
   static const long expectedLength = 4160;  // Takes ~1 second for Velodyne to transmit all status byte data
   static const int numberOfRoundNeeded = 3;
-  static const long maxNumRounds = expectedLength * 600; // 600 seconds worth of accumulation, should be greater than numberOfRoundNeeded
+  static const long maxNumRounds = 600; // 600 seconds worth of accumulation, should be greater than numberOfRoundNeeded
   static const int byteBeforeMarker = 6;
   const TypeValueDataPair beginMarkerValuePair;
 };
