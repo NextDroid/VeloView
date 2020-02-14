@@ -11,6 +11,8 @@
 #include "vtkDataPacket.h"
 #include "vtkRollingDataAccumulator.h"
 
+#include <chrono>
+
 using namespace DataPacketFixedLength;
 
 #define PacketProcessingDebugMacro(x)                                                              \
@@ -1490,9 +1492,9 @@ void vtkVelodynePacketInterpreter::PreProcessPacket(unsigned char const * data, 
 //-----------------------------------------------------------------------------
 double vtkVelodynePacketInterpreter::ComputeGpsTopOfHourTime()
 {
-  auto gpsTohValues = this->rollingCalibrationData->getGpsTopOfHourValues();
+  auto tohValues = this->rollingCalibrationData->getGpsTopOfHourValues();
 
-  /*typedef std::chrono::duration<double> seconds;
+  typedef std::chrono::duration<double> seconds;
 
   // Note: Values taken from: https://www.ietf.org/timezones/data/leap-seconds.list (timestamps converted to UTC and only using times after year 2000)
   std::vector<double> leapSecondTimestamp = {1136073600, 1230768000, 1341100800, 1435708800, 1483228800};
@@ -1544,9 +1546,7 @@ double vtkVelodynePacketInterpreter::ComputeGpsTopOfHourTime()
       std::cerr << "Could not compute GPS Timestamp" << std::endl;
   }
 
-  return gpsTohTime;*/ // milliseconds
-
-  return 0;
+  return gpsTohTime; // milliseconds - isn't it just seconds?
 }
 
 //-----------------------------------------------------------------------------
