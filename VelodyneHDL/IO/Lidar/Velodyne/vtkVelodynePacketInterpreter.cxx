@@ -973,7 +973,7 @@ void vtkVelodynePacketInterpreter::PushFiringData(unsigned char laserId, unsigne
   double distanceM;
   double pos[3];
   bool applyIntensityCorrection =
-    this->WantIntensityCorrection && this->IsHDL64Data && !(this->SensorPowerMode == CorrectionOn);
+    this->WantIntensityCorrection && this->IsHDL64Data; // TODO not sure what this gets set or what it means && !(this->SensorPowerMode == CorrectionOn);
   ComputeCorrectedValues(
     azimuth, laserReturn, correction, pos, distanceM, intensity, applyIntensityCorrection);
 
@@ -1209,9 +1209,6 @@ void vtkVelodynePacketInterpreter::ComputeCorrectedValues(const unsigned short a
     double computedIntensity = static_cast<double>(intensity);
     double minIntensity = static_cast<double>(correction->minIntensity);
     double maxIntensity = static_cast<double>(correction->maxIntensity);
-
-    // Rescale the intensity between 0 and 255
-    computedIntensity = (computedIntensity - minIntensity) / (maxIntensity - minIntensity) * 255.0;
 
     if (computedIntensity < 0)
     {
