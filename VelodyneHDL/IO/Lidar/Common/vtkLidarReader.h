@@ -72,6 +72,8 @@ public:
   vtkGetMacro(ShowFirstAndLastFrame, bool)
   vtkSetMacro(ShowFirstAndLastFrame, bool)
 
+  vtkGetMacro(GpsTopOfHourTime, double)
+
 protected:
   vtkLidarReader() = default;
   ~vtkLidarReader() = default;
@@ -95,7 +97,7 @@ protected:
   vtkPacketFileReader* Reader = nullptr;
 
   // gpsTopOfHourTime for when position packets are not used
-  double gpsTopOfHourTime;
+  double GpsTopOfHourTime;
 
 private:
   /**
