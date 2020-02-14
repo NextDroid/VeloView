@@ -1224,12 +1224,15 @@ void vtkVelodynePacketInterpreter::ComputeCorrectedValues(const unsigned short a
 
     if (insideAbsValue > 0)
     {
-      computedIntensity = computedIntensity + correction->focalSlope * insideAbsValue;
+      computedIntensity = computedIntensity + 100*correction->focalSlope * insideAbsValue;
     }
     else
     {
-      computedIntensity = computedIntensity + correction->closeSlope * insideAbsValue;
+      computedIntensity = computedIntensity + 100*correction->closeSlope * insideAbsValue;
     }
+
+    // Rescale the intensity between 0 and 255
+    computedIntensity = (computedIntensity - minIntensity) / (maxIntensity - minIntensity) * 255.0; 
     computedIntensity = std::max(std::min(computedIntensity, 255.0), 1.0);
 
     intensity = static_cast<short>(computedIntensity);
@@ -1492,7 +1495,7 @@ void vtkVelodynePacketInterpreter::PreProcessPacket(unsigned char const * data, 
 //-----------------------------------------------------------------------------
 double vtkVelodynePacketInterpreter::ComputeGpsTopOfHourTime()
 {
-  if (IsHDL64Data) {
+  if (!IsHDL64Data) {
     std::cout << "Don't need to get GPS ToH time for non HDL 64 data" << std::endl;
     return 0;
   }
