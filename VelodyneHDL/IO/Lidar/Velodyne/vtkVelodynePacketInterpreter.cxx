@@ -1492,6 +1492,11 @@ void vtkVelodynePacketInterpreter::PreProcessPacket(unsigned char const * data, 
 //-----------------------------------------------------------------------------
 double vtkVelodynePacketInterpreter::ComputeGpsTopOfHourTime()
 {
+  if (IsHDL64Data) {
+    std::cout << "Don't need to get GPS ToH time for non HDL 64 data" << std::endl;
+    return 0;
+  }
+
   auto tohValues = this->rollingCalibrationData->getGpsTopOfHourValues();
 
   typedef std::chrono::duration<double> seconds;

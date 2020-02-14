@@ -129,6 +129,8 @@ public:
 
   virtual int GetNumberOfChannels() { return this->CalibrationReportedNumLasers; }
 
+  virtual double ComputeGpsTopOfHourTime() { return 0; }
+
   vtkGetMacro(CalibrationFileName, std::string)
   vtkSetMacro(CalibrationFileName, std::string)
 

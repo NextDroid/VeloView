@@ -72,6 +72,8 @@ int vtkLidarReader::ReadFrameInformation()
   {
     vtkErrorMacro( << "The calibration could not be loaded from the pcap file");
   }
+  this->GpsTopOfHourTime = this->Interpreter->ComputeGpsTopOfHourTime();
+
   return this->GetNumberOfFrames();
 }
 
