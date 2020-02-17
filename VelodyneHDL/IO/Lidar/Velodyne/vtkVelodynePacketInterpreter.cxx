@@ -1664,3 +1664,20 @@ void vtkVelodynePacketInterpreter::GetLaserCorrections(double verticalCorrection
     maxIntensity[i] = this->laser_corrections_[i].maxIntensity;
   }
 }
+
+//-----------------------------------------------------------------------------
+bool vtkVelodynePacketInterpreter::ValidateCalibrationFromLiveStream(bool checkIncompleteCycles)
+{
+  if (this->IsHDL64Data && !this->IsCorrectionFromLiveStream)
+  {
+    auto vecStart = laser_corrections_;
+    std::vector<HDLLaserCorrection> xmlCalibration(vecStart, vecStart+HDL_MAX_NUM_LASERS);
+    this->rollingCalibrationData->setXmlCorrections(xmlCalibration);
+
+    return this->rollingCalibrationData->verifyCalibrationData(checkIncompleteCycles);
+  }
+  else
+  {
+    return true;
+  }
+}

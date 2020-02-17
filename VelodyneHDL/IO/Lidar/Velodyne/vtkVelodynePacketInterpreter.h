@@ -62,6 +62,8 @@ public:
 
   double ComputeGpsTopOfHourTime();
 
+  bool ValidateCalibrationFromLiveStream(bool checkIncompleteCycles); // make this over rides the base funciton
+
   vtkSetMacro(ShouldAddDualReturnArray, bool)
 
   vtkGetMacro(HasDualReturn, bool)
@@ -75,6 +77,9 @@ public:
   vtkSetMacro(UseIntraFiringAdjustment, bool)
 
   vtkSetMacro(DualReturnFilter, unsigned int)
+
+  vtkGetMacro(ShouldValidateCalibrationFromStream, bool) // make sure this over rides the base function
+  vtkSetMacro(ShouldValidateCalibrationFromStream, bool)
 
 protected:
   // Process the laser return from the firing data
@@ -184,6 +189,8 @@ protected:
   bool ShouldCheckSensor;
 
   unsigned int DualReturnFilter;
+
+  bool ShouldValidateCalibrationFromStream = true;
 
   vtkVelodynePacketInterpreter();
   ~vtkVelodynePacketInterpreter();

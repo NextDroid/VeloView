@@ -131,6 +131,10 @@ public:
 
   virtual double ComputeGpsTopOfHourTime() { return 0; }
 
+  virtual bool GetShouldValidateCalibrationFromStream() { return true; }
+
+  virtual bool ValidateCalibrationFromLiveStream(bool checkIncompleteCycles) {return false;}
+
   vtkGetMacro(CalibrationFileName, std::string)
   vtkSetMacro(CalibrationFileName, std::string)
 
