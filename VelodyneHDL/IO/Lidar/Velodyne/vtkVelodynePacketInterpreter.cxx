@@ -1481,10 +1481,13 @@ void vtkVelodynePacketInterpreter::PreProcessPacket(unsigned char const * data, 
   }
 
   // Accumulate HDL64 Status byte data
+  if (IsHDL64Data) {
+    this->rollingCalibrationData->appendData(dataPacket->gpsTimestamp, dataPacket->factoryField1, dataPacket->factoryField2);
+  }
+
   if (IsHDL64Data && this->IsCorrectionFromLiveStream &&
     !this->IsCalibrated)
   {
-    this->rollingCalibrationData->appendData(dataPacket->gpsTimestamp, dataPacket->factoryField1, dataPacket->factoryField2);
     this->HDL64LoadCorrectionsFromStreamData();
   }
 }
