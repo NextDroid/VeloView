@@ -12,7 +12,7 @@ using namespace DataPacketFixedLength;
 
 class RPMCalculator;
 class FramingState;
-class vtkRollingDataAccumulator;
+class vtkRollingDataValidator;
 
 
 class VTK_EXPORT vtkVelodynePacketInterpreter : public vtkLidarPacketInterpreter
@@ -174,7 +174,7 @@ protected:
   bool IsCorrectionFromLiveStream = true;
 
   // Sensor parameters presented as rolling data, extracted from enough packets
-  vtkRollingDataAccumulator* rollingCalibrationData;
+  vtkRollingDataValidator* rollingCalibrationData;
 
   // User configurable parameters
   int FiringsSkip;

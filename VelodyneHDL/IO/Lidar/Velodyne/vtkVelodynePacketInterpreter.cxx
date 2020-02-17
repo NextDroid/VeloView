@@ -9,7 +9,7 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/foreach.hpp>
 #include "vtkDataPacket.h"
-#include "vtkRollingDataAccumulator.h"
+#include "vtkRollingDataValidator.h"
 
 #include <chrono>
 
@@ -467,7 +467,7 @@ vtkVelodynePacketInterpreter::vtkVelodynePacketInterpreter()
   this->DistanceResolutionM = 0.002;
   this->WantIntensityCorrection = false;
 
-  this->rollingCalibrationData = new vtkRollingDataAccumulator();
+  this->rollingCalibrationData = new vtkRollingDataValidator();
   this->Init();
 }
 

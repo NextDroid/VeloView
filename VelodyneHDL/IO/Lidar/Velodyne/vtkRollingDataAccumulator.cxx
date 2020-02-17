@@ -48,6 +48,11 @@ void vtkRollingDataAccumulator::appendData(TypeValueDataPair valuePair)
   this->accumulatedDataType.push_back(valuePair.dataType);
   this->accumulatedValue.push_back(valuePair.dataValue);
 
+  // Store non-timestamp/temperature/gps/firmware-version fields:
+  if (std::find(excludeMarkers.begin(), excludeMarkers.end(), valuePair.dataType) == excludeMarkers.end()) { // If valuePair.dataType not found in excludeMarkers
+    this->accumulatedDataComparable.emplace_back(valuePair);
+  }
+
   // Store Values needed to compute gps top-of-hour timestamp:
   if (valuePair.dataType == 'G' && !this->gpsTopOfHourValues.signalStatusSet) {
     this->gpsTopOfHourValues.signalStatus = static_cast<unsigned char>(valuePair.dataValue);

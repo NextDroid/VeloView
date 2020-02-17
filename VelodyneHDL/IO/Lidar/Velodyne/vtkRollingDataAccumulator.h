@@ -76,14 +76,16 @@ protected:
   std::vector<unsigned char> accumulatedDataType;
   std::vector<unsigned char> accumulatedValue;
   std::vector<long> beginPosition;
+  std::vector<TypeValueDataPair> accumulatedDataComparable;
 
   GpsTopOfHourValues gpsTopOfHourValues;
 
-private:
   static const long expectedLength = 4160;  // Takes ~1 second for Velodyne to transmit all status byte data
   static const int numberOfRoundNeeded = 3;
   static const long maxNumRounds = 600; // 600 seconds worth of accumulation, should be greater than numberOfRoundNeeded
   static const int byteBeforeMarker = 6;
   const TypeValueDataPair beginMarkerValuePair;
+
+  const std::vector<char> excludeMarkers = {'H','M','S','D','N','Y','G','T','V'};
 };
 #endif // VTKROLLINGDATAACCUMULATOR_H
