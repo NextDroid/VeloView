@@ -12,7 +12,7 @@ using namespace DataPacketFixedLength;
 
 class RPMCalculator;
 class FramingState;
-class vtkRollingDataAccumulator;
+class vtkRollingDataValidator;
 
 
 class VTK_EXPORT vtkVelodynePacketInterpreter : public vtkLidarPacketInterpreter
@@ -60,6 +60,10 @@ public:
     double focalSlope[HDL_MAX_NUM_LASERS], double minIntensity[HDL_MAX_NUM_LASERS],
     double maxIntensity[HDL_MAX_NUM_LASERS]);
 
+  double ComputeGpsTopOfHourTime();
+
+  bool ValidateCalibrationFromLiveStream(bool checkIncompleteCycles); // make this over rides the base funciton
+
   vtkSetMacro(ShouldAddDualReturnArray, bool)
 
   vtkGetMacro(HasDualReturn, bool)
@@ -73,6 +77,9 @@ public:
   vtkSetMacro(UseIntraFiringAdjustment, bool)
 
   vtkSetMacro(DualReturnFilter, unsigned int)
+
+  vtkGetMacro(ShouldValidateCalibrationFromStream, bool) // make sure this over rides the base function
+  vtkSetMacro(ShouldValidateCalibrationFromStream, bool)
 
 protected:
   // Process the laser return from the firing data
@@ -172,7 +179,7 @@ protected:
   bool IsCorrectionFromLiveStream = true;
 
   // Sensor parameters presented as rolling data, extracted from enough packets
-  vtkRollingDataAccumulator* rollingCalibrationData;
+  vtkRollingDataValidator* rollingCalibrationData;
 
   // User configurable parameters
   int FiringsSkip;
@@ -182,6 +189,8 @@ protected:
   bool ShouldCheckSensor;
 
   unsigned int DualReturnFilter;
+
+  bool ShouldValidateCalibrationFromStream = true;
 
   vtkVelodynePacketInterpreter();
   ~vtkVelodynePacketInterpreter();

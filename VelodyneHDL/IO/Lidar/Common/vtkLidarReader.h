@@ -72,6 +72,8 @@ public:
   vtkGetMacro(ShowFirstAndLastFrame, bool)
   vtkSetMacro(ShowFirstAndLastFrame, bool)
 
+  vtkGetMacro(GpsTopOfHourTime, double)
+
 protected:
   vtkLidarReader() = default;
   ~vtkLidarReader() = default;
@@ -93,6 +95,9 @@ protected:
 
   //! libpcap wrapped reader which enable to get the raw pcap packet from the pcap file
   vtkPacketFileReader* Reader = nullptr;
+
+  // gpsTopOfHourTime for when position packets are not used
+  double GpsTopOfHourTime;
 
 private:
   /**

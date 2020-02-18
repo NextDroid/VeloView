@@ -17,7 +17,7 @@
 #include <vtkPointData.h>
 #include <vtkPolyData.h>
 
-#include <vtk_libproj4.h>
+#include <vtk_libproj.h>
 
 #include <liblas/liblas.hpp>
 
