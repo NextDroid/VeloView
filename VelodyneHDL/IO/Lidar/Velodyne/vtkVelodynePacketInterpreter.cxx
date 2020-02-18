@@ -1671,7 +1671,7 @@ bool vtkVelodynePacketInterpreter::ValidateCalibrationFromLiveStream(bool checkI
   if (this->IsHDL64Data && !this->IsCorrectionFromLiveStream)
   {
     auto vecStart = laser_corrections_;
-    std::vector<HDLLaserCorrection> xmlCalibration(vecStart, vecStart+HDL_MAX_NUM_LASERS);
+    std::vector<HDLLaserCorrection> xmlCalibration(vecStart, vecStart+HDL_NUM_LASERS_64);
     this->rollingCalibrationData->setXmlCorrections(xmlCalibration);
 
     return this->rollingCalibrationData->verifyCalibrationData(checkIncompleteCycles);

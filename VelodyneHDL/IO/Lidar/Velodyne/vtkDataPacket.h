@@ -34,6 +34,7 @@ namespace DataPacketFixedLength
 static const int HDL_NUM_ROT_ANGLES = 36001;
 static const int HDL_LASER_PER_FIRING = 32;
 static const int HDL_MAX_NUM_LASERS = 128;
+static const int HDL_NUM_LASERS_64 = 64;
 static const int HDL_FIRING_PER_PKT = 12;
 
 enum HDLBlock
