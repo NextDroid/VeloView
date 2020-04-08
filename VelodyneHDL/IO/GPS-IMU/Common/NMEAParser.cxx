@@ -43,13 +43,15 @@ namespace {
     time_t epochtime;
 
     t.tm_year = 2000-1900+location.DateYear;
-    t.tm_mon = location.DateMonth-1;
+    t.tm_mon = location.DateMonth-1; //tm_mom expects 0-11
     t.tm_mday = location.DateDay;
     t.tm_hour = location.HH;
     t.tm_min = location.MM;
     t.tm_sec = location.SS;
 
     epochtime = timegm(&t);
+
+    location.UnixTime = epochtime;
   }
 
   bool ParseFAA(const std::vector<std::string>& w,
@@ -353,6 +355,8 @@ bool NMEAParser::ParseGPRMC(const std::vector<std::string>& w,
   {
     return false;
   }
+
+  SetUnixTime(location);
 
   return true;
 }

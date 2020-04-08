@@ -495,6 +495,9 @@ int vtkVelodyneHDLPositionReader::RequestData(vtkInformation* vtkNotUsed(request
   vtkSmartPointer<vtkDoubleArray> gpsTime = vtkSmartPointer<vtkDoubleArray>::New();
   gpsTime->SetName("gpstime");
 
+  vtkSmartPointer<vtkDoubleArray> unixTime = vtkSmartPointer<vtkDoubleArray>::New();
+  unixTime->SetName("unixtime");
+
   typedef std::map<std::string, vtkSmartPointer<vtkDoubleArray> > VecMap;
   VecMap dataVectors;
   dataVectors.insert(std::make_pair("gyro1", vtkSmartPointer<vtkDoubleArray>::New()));
@@ -520,6 +523,7 @@ int vtkVelodyneHDLPositionReader::RequestData(vtkInformation* vtkNotUsed(request
   lats->Allocate(5000, 5000);
   lons->Allocate(5000, 5000);
   gpsTime->Allocate(5000, 5000);
+  unixTime->Allocate(5000, 5000);
 
   const unsigned char* data;
   unsigned int dataLength;
@@ -534,6 +538,8 @@ int vtkVelodyneHDLPositionReader::RequestData(vtkInformation* vtkNotUsed(request
   double lastGPSUpdateTime = 0.0;
   double GPSTimeOffset = 0.0;
   double convertedGPSUpdateTime = 0.0;
+
+  double utcToUnixTime = 0.0;
 
   bool hasLastLidarUpdateTime = false;
   double lastLidarUpdateTime = 0.0;
@@ -664,7 +670,8 @@ int vtkVelodyneHDLPositionReader::RequestData(vtkInformation* vtkNotUsed(request
 	heading = 0.0;
       }
 
-      gpsUpdateTime = parsedNMEA.UTCSecondsOfDay;
+      utcToUnixTime = parsedNMEA.UnixTime;
+      gpsUpdateTime = parsedNMEA.UTCSecondsOfDay; //incorrect so made the decision to move to Unix time
       if (!hasLastGPSUpdateTime)
       {
         hasLastGPSUpdateTime = true;
@@ -719,6 +726,7 @@ int vtkVelodyneHDLPositionReader::RequestData(vtkInformation* vtkNotUsed(request
     lats->InsertNextValue(lat);
     lons->InsertNextValue(lon);
     gpsTime->InsertNextValue(convertedGPSUpdateTime);
+    unixTime->InsertNextValue(utcToUnixTime);
     polyIds->InsertNextId(pointcount);
 
     times->InsertNextValue(convertedLidarUpdateTime);
@@ -757,6 +765,7 @@ int vtkVelodyneHDLPositionReader::RequestData(vtkInformation* vtkNotUsed(request
   output->GetPointData()->AddArray(lats);
   output->GetPointData()->AddArray(lons);
   output->GetPointData()->AddArray(gpsTime);
+  output->GetPointData()->AddArray(unixTime);
   output->GetPointData()->AddArray(times);
   for (VecMap::iterator it = dataVectors.begin(); it != dataVectors.end(); ++it)
   {
