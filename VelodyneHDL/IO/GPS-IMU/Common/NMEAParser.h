@@ -122,6 +122,10 @@ public:
   double Lat;
   double Long;
   double UTCSecondsOfDay;
+  double UnixTime;
+  int SS;
+  int MM;
+  int HH;
   bool HasAltitude;
   double Altitude;
   bool HasGeoidalSeparation;
