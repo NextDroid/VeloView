@@ -122,7 +122,7 @@ public:
   double Lat;
   double Long;
   double UTCSecondsOfDay;
-  double UnixTime;
+  double HourUnixTime;
   int SS;
   int MM;
   int HH;

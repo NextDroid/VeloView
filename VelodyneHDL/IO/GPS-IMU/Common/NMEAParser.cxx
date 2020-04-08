@@ -38,7 +38,7 @@ namespace {
     return true;
   }
 
-  bool SetUnixTime(NMEALocation& location) {
+  bool SetHourUnixTime(NMEALocation& location) {
     struct tm t;
     time_t epochtime;
 
@@ -46,12 +46,12 @@ namespace {
     t.tm_mon = location.DateMonth-1; //tm_mom expects 0-11
     t.tm_mday = location.DateDay;
     t.tm_hour = location.HH;
-    t.tm_min = location.MM;
-    t.tm_sec = location.SS;
+    t.tm_min = 0;
+    t.tm_sec = 0;
 
     epochtime = timegm(&t);
 
-    location.UnixTime = epochtime;
+    location.HourUnixTime = epochtime;
   }
 
   bool ParseFAA(const std::vector<std::string>& w,
@@ -356,7 +356,7 @@ bool NMEAParser::ParseGPRMC(const std::vector<std::string>& w,
     return false;
   }
 
-  SetUnixTime(location);
+  SetHourUnixTime(location);
 
   return true;
 }

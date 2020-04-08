@@ -496,7 +496,7 @@ int vtkVelodyneHDLPositionReader::RequestData(vtkInformation* vtkNotUsed(request
   gpsTime->SetName("gpstime");
 
   vtkSmartPointer<vtkDoubleArray> unixTime = vtkSmartPointer<vtkDoubleArray>::New();
-  unixTime->SetName("unixtime");
+  unixTime->SetName("hourUnixTime");
 
   typedef std::map<std::string, vtkSmartPointer<vtkDoubleArray> > VecMap;
   VecMap dataVectors;
@@ -539,7 +539,7 @@ int vtkVelodyneHDLPositionReader::RequestData(vtkInformation* vtkNotUsed(request
   double GPSTimeOffset = 0.0;
   double convertedGPSUpdateTime = 0.0;
 
-  double utcToUnixTime = 0.0;
+  double hourUtcToUnixTime = 0.0;
 
   bool hasLastLidarUpdateTime = false;
   double lastLidarUpdateTime = 0.0;
@@ -670,7 +670,7 @@ int vtkVelodyneHDLPositionReader::RequestData(vtkInformation* vtkNotUsed(request
 	heading = 0.0;
       }
 
-      utcToUnixTime = parsedNMEA.UnixTime;
+      hourUtcToUnixTime = parsedNMEA.HourUnixTime;
       gpsUpdateTime = parsedNMEA.UTCSecondsOfDay; //incorrect so made the decision to move to Unix time
       if (!hasLastGPSUpdateTime)
       {
@@ -726,7 +726,7 @@ int vtkVelodyneHDLPositionReader::RequestData(vtkInformation* vtkNotUsed(request
     lats->InsertNextValue(lat);
     lons->InsertNextValue(lon);
     gpsTime->InsertNextValue(convertedGPSUpdateTime);
-    unixTime->InsertNextValue(utcToUnixTime);
+    unixTime->InsertNextValue(hourUtcToUnixTime);
     polyIds->InsertNextId(pointcount);
 
     times->InsertNextValue(convertedLidarUpdateTime);
