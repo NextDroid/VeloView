@@ -82,6 +82,7 @@ int vtkLidarReader::ReadFrameInformation()
   }
 
   this->GpsTopOfHourTime = this->Interpreter->ComputeGpsTopOfHourTime();
+  this->UTCTopOfHourTime = this->Interpreter->ComputeUTCTopOfHourTime();
 
   return this->GetNumberOfFrames();
 }

@@ -131,6 +131,8 @@ public:
 
   virtual double ComputeGpsTopOfHourTime() { return 0; }
 
+  virtual double ComputeUTCTopOfHourTime() { return 0; }
+
   virtual bool GetShouldValidateCalibrationFromStream() { return true; }
 
   virtual bool ValidateCalibrationFromLiveStream(bool checkIncompleteCycles) {return false;}
