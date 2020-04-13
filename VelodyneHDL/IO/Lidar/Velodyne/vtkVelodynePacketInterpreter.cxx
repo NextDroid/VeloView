@@ -1493,6 +1493,49 @@ void vtkVelodynePacketInterpreter::PreProcessPacket(unsigned char const * data, 
 }
 
 //-----------------------------------------------------------------------------
+double vtkVelodynePacketInterpreter::ComputeUTCTopOfHourTime()
+{
+  if (!IsHDL64Data) {
+    std::cout << "Don't need to get UTC ToH time for non HDL 64 data" << std::endl;
+    return 0;
+  }
+
+  auto tohValues = this->rollingCalibrationData->getGpsTopOfHourValues();
+
+  typedef std::chrono::duration<double> seconds;
+
+  double utcTohTime = 0;
+
+  std::cout << "Computing UTC Toh Time: " << std::endl;
+  std::cout << "GPS signal status: " << tohValues.signalStatus << std::endl;
+
+  if (tohValues.allValuesSet()) {
+
+    int y = static_cast<uint8_t >(tohValues.year) + 2000; // years since 2000 (see velodyne manual p. 32)
+    int m = static_cast<uint8_t>(tohValues.month);        // month in the current year (not zero-indexed)
+    int d = static_cast<uint8_t>(tohValues.day);          // day of the month
+    int h = static_cast<uint8_t>(tohValues.hour);         // hour of the day
+
+    // Create string timestamp:
+    std::stringstream ss;
+    ss << setfill('0') << setw(2) << m << "/" << setfill('0') << setw(2) << d << "/" << y << " " << setfill('0') << setw(2) << h;
+    std::cout << ss.str() << std::endl;
+
+    std::tm t = {0};
+    ss >> std::get_time(&t, "%D %H");
+
+    auto utctime = std::chrono::seconds(timegm(&t));
+    utcTohTime = utctime.count();
+
+    std::cout << std::setprecision(std::numeric_limits<double>::max_digits10) << "utctime (sec): " << utcTohTime << std::endl;
+  } else {
+      std::cerr << "Could not compute UTC Timestamp" << std::endl;
+  }
+
+  return utcTohTime;
+}
+
+//-----------------------------------------------------------------------------
 double vtkVelodynePacketInterpreter::ComputeGpsTopOfHourTime()
 {
   if (!IsHDL64Data) {

@@ -60,6 +60,8 @@ public:
     double focalSlope[HDL_MAX_NUM_LASERS], double minIntensity[HDL_MAX_NUM_LASERS],
     double maxIntensity[HDL_MAX_NUM_LASERS]);
 
+  double ComputeUTCTopOfHourTime();
+
   double ComputeGpsTopOfHourTime();
 
   bool ValidateCalibrationFromLiveStream(bool checkIncompleteCycles); // make this over rides the base funciton

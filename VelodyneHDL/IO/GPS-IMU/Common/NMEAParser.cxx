@@ -23,19 +23,35 @@ namespace {
       std::modf(read, &integral_part);
       double fractional_part = read - integral_part;
       int HHMMSS = static_cast<int>(vtkMath::Round(integral_part));
-      int SS = HHMMSS % 100;
-      int MM = ((HHMMSS - SS) % 10000) / 100;
-      int HH = (HHMMSS - SS - 100 * MM) / 10000;
+      location.SS = HHMMSS % 100;
+      location.MM = ((HHMMSS - location.SS) % 10000) / 100;
+      location.HH = (HHMMSS - location.SS - 100 * location.MM) / 10000;
       location.UTCSecondsOfDay =
           fractional_part
-          + static_cast<double>(SS)
-          + 60.0 * static_cast<double>(MM)
-          + 3600.0 * static_cast<double>(HH);
+          + static_cast<double>(location.SS)
+          + 60.0 * static_cast<double>(location.MM)
+          + 3600.0 * static_cast<double>(location.HH);
     }
     catch (const std::logic_error&) {
       return false;
     }
     return true;
+  }
+
+  bool SetHourUnixTime(NMEALocation& location) {
+    struct tm t;
+    time_t epochtime;
+
+    t.tm_year = 2000-1900+location.DateYear;
+    t.tm_mon = location.DateMonth-1; //tm_mom expects 0-11
+    t.tm_mday = location.DateDay;
+    t.tm_hour = location.HH;
+    t.tm_min = 0;
+    t.tm_sec = 0;
+
+    epochtime = timegm(&t);
+
+    location.HourUnixTime = epochtime;
   }
 
   bool ParseFAA(const std::vector<std::string>& w,
@@ -339,6 +355,8 @@ bool NMEAParser::ParseGPRMC(const std::vector<std::string>& w,
   {
     return false;
   }
+
+  SetHourUnixTime(location);
 
   return true;
 }
