@@ -88,9 +88,10 @@ public:
    * @param dataLength size of the data packet
    * @param isNewFrame[out] indicate if a new frame should be created
    * @param framePositionInPacket[out] indicate the offset of the new, I
+   * @param outputFile output CSV file for stats
    */
   virtual void PreProcessPacket(unsigned char const * data, unsigned int dataLength,
-                         bool& isNewFrame, int& framePositionInPacket) = 0;
+                         bool& isNewFrame, int& framePositionInPacket, std::ofstream &outputFile) = 0;
 
   /**
    * @brief IsLidarPacket check if the given packet is really a lidar packet

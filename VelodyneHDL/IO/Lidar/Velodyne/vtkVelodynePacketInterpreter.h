@@ -8,6 +8,9 @@
 #include <vtkUnsignedShortArray.h>
 #include <memory>
 
+#include <iostream>
+#include <fstream>
+
 using namespace DataPacketFixedLength;
 
 class RPMCalculator;
@@ -44,7 +47,7 @@ public:
 
   void ResetCurrentFrame() override;
 
-  void PreProcessPacket(unsigned char const * data, unsigned int dataLength, bool &isNewFrame, int &framePositionInPacket) override;
+  void PreProcessPacket(unsigned char const * data, unsigned int dataLength, bool &isNewFrame, int &framePositionInPacket, std::ofstream &outputFile) override;
 
   std::string GetSensorInformation() override;
 

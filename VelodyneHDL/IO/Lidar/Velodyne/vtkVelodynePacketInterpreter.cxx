@@ -14,6 +14,7 @@
 #include <chrono>
 
 #include <iostream>
+#include <fstream>
 
 using namespace DataPacketFixedLength;
 
@@ -1399,7 +1400,7 @@ void vtkVelodynePacketInterpreter::ResetCurrentFrame()
 }
 
 //-----------------------------------------------------------------------------
-void vtkVelodynePacketInterpreter::PreProcessPacket(unsigned char const * data, unsigned int dataLength, bool &isNewFrame, int &framePositionInPacket)
+void vtkVelodynePacketInterpreter::PreProcessPacket(unsigned char const * data, unsigned int dataLength, bool &isNewFrame, int &framePositionInPacket, std::ofstream &outputFile)
 {
   const HDLDataPacket* dataPacket = reinterpret_cast<const HDLDataPacket*>(data);
   //! @todo don't use static value here this is ugly...
@@ -1434,14 +1435,8 @@ void vtkVelodynePacketInterpreter::PreProcessPacket(unsigned char const * data, 
 
   this->IsVLS128 = dataPacket->isVLS128();
 
-  // (last, strongest) (not last, second-strongest) D1 > D2 && I1 > I2
-  // (last, not strongest) (not last, strongest) D1 > D2 && I1 < I2
-  // (last, equal) (not last, equal) D1 > D2 && I1 == I2
-  // (equal, not strongest) (equal, strongest) D1 == D2 && I1 < I2
-  // (equal, equal) (equal, equal) D1 == D2 && I1 == I2
-  // other
-
   int statsCount[9] = {0};
+  int zeroCount[4] = {0};
 
   for (int i = 0; i < HDL_FIRING_PER_PKT; ++i)
   {
@@ -1489,12 +1484,14 @@ void vtkVelodynePacketInterpreter::PreProcessPacket(unsigned char const * data, 
     }
     PacketProcessingDebugMacro(<< firingData.rotationalPosition << ", ");
 
+    // TODO: check for dual mode
     if (i % 2 == 0 && IsVLS128) {
+      const HDLFiringData& nextFiringData = dataPacket->firingData[i + 1];
       for (int j = 0; j < HDL_LASER_PER_FIRING; ++j) {
         int distLeft = firingData.laserReturns[j].distance;
-        int distRight = firingData.laserReturns[j + HDL_LASER_PER_FIRING].distance;
+        int distRight = nextFiringData.laserReturns[j].distance;
         int intenLeft = firingData.laserReturns[j].intensity;
-        int intenRight = firingData.laserReturns[j + HDL_LASER_PER_FIRING].intensity;
+        int intenRight = nextFiringData.laserReturns[j].intensity;
         //std::cout << i << ": " << j << ", " << j + HDL_LASER_PER_FIRING << ", " << distLeft << " " << distRight << std::endl;
 
         if (distLeft > distRight && intenLeft > intenRight) {
@@ -1513,17 +1510,33 @@ void vtkVelodynePacketInterpreter::PreProcessPacket(unsigned char const * data, 
           statsCount[6]++;
         } else if (distLeft == distRight && intenLeft < intenRight) {
           statsCount[7]++;
-        } else {
+        } else if (distLeft == distRight && intenLeft == intenRight) {
           statsCount[8]++;
         }
+
+        if (distLeft != 0 && distRight == 0) {
+          zeroCount[0]++;
+        } else if (distLeft == 0 && distRight != 0) {
+          zeroCount[1]++;
+        } else if (distLeft != 0 && distRight != 0) {
+          zeroCount[2]++;
+        } else if (distLeft == 0 && distRight == 0) {
+          zeroCount[3]++;
+        }
+
+        //std::cout << "Left: (" << distLeft << ", " << intenLeft << ")" << std::endl;
+        //std::cout << "Right: (" << distRight << ", " << intenRight << ")" << std::endl;
       }
     }
   }
 
   for (int i = 0; i < sizeof(statsCount) / sizeof(statsCount[0]); ++i) {
-      std::cout << statsCount[i] << ", ";
+      outputFile << statsCount[i] << ", ";
   }
-  std::cout << std::endl;
+  /*for (int i = 0; i < sizeof(zeroCount) / sizeof(zeroCount[0]); ++i) {
+      outputFile << zeroCount[i] << ", ";
+  }*/
+  outputFile << std::endl;
 
   // Accumulate HDL64 Status byte data
   if (IsHDL64Data) {

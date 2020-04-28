@@ -8,6 +8,9 @@
 #include <vtkInformation.h>
 #include <vtkStreamingDemandDrivenPipeline.h>
 
+#include <iostream>
+#include <fstream>
+
 //-----------------------------------------------------------------------------
 int vtkLidarReader::ReadFrameInformation()
 {
@@ -29,6 +32,9 @@ int vtkLidarReader::ReadFrameInformation()
   fpos_t lastFilePosition;
   reader.GetFilePosition(&lastFilePosition);
   bool firstIteration = true;
+
+  std::ofstream outputCSV;
+  outputCSV.open("stats.csv");
 
   while (reader.NextPacket(data, dataLength, timeSinceStart))
   {
@@ -58,7 +64,7 @@ int vtkLidarReader::ReadFrameInformation()
     }
 
     // check if the packet content indicate a new frame should be created
-    this->Interpreter->PreProcessPacket(data, dataLength, isNewFrame, framePositionInPacket);
+    this->Interpreter->PreProcessPacket(data, dataLength, isNewFrame, framePositionInPacket, outputCSV);
     if (isNewFrame)
     {
       FramePosition newPosition(lastFilePosition,framePositionInPacket, timeSinceStart);
@@ -67,6 +73,8 @@ int vtkLidarReader::ReadFrameInformation()
 
     reader.GetFilePosition(&lastFilePosition);
   }
+
+  outputCSV.close();
 
   if (!this->Interpreter->GetIsCalibrated())
   {
@@ -264,6 +272,9 @@ void vtkLidarReader::SaveFrame(int startFrame, int endFrame, const std::string &
 
   this->Reader->SetFilePosition(&this->FilePositions[startFrame].Position);
 
+  std::ofstream outputCSV;
+  outputCSV.open("statsSaveFrame.csv");
+
   while (this->Reader->NextPacket(
            data, dataLength, timeSinceStart, &header, &dataHeaderLength)
          && currentFrame <= endFrame + 1) // see explanation above for "+ 1"
@@ -274,12 +285,13 @@ void vtkLidarReader::SaveFrame(int startFrame, int endFrame, const std::string &
     if (this->Interpreter->IsLidarPacket(data, dataLength))
     {
       // we need to count frames and some are split in multiple packets
-      this->Interpreter->PreProcessPacket(data, dataLength, isNewFrame, notUsed);
+      this->Interpreter->PreProcessPacket(data, dataLength, isNewFrame, notUsed, outputCSV);
       currentFrame += static_cast<int>(isNewFrame);
       this->UpdateProgress(0.0);
     }
   }
-    writer.Close();
+  writer.Close();
+  outputCSV.close();
 }
 
 //-----------------------------------------------------------------------------
