@@ -13,6 +13,8 @@
 
 #include <chrono>
 
+#include <iostream>
+
 using namespace DataPacketFixedLength;
 
 #define PacketProcessingDebugMacro(x)                                                              \
@@ -1432,10 +1434,18 @@ void vtkVelodynePacketInterpreter::PreProcessPacket(unsigned char const * data, 
 
   this->IsVLS128 = dataPacket->isVLS128();
 
+  // (last, strongest) (not last, second-strongest) D1 > D2 && I1 > I2
+  // (last, not strongest) (not last, strongest) D1 > D2 && I1 < I2
+  // (last, equal) (not last, equal) D1 > D2 && I1 == I2
+  // (equal, not strongest) (equal, strongest) D1 == D2 && I1 < I2
+  // (equal, equal) (equal, equal) D1 == D2 && I1 == I2
+  // other
+
+  int statsCount[9] = {0};
+
   for (int i = 0; i < HDL_FIRING_PER_PKT; ++i)
   {
     const HDLFiringData& firingData = dataPacket->firingData[i];
-
 
     // Skip dummy blocks of VLS-128 dual mode last 4 blocks
     if (IsVLS128 && (firingData.blockIdentifier == 0 || firingData.blockIdentifier == 0xFFFF))
@@ -1478,7 +1488,42 @@ void vtkVelodynePacketInterpreter::PreProcessPacket(unsigned char const * data, 
       isEmptyFrame = true;
     }
     PacketProcessingDebugMacro(<< firingData.rotationalPosition << ", ");
+
+    if (i % 2 == 0 && IsVLS128) {
+      for (int j = 0; j < HDL_LASER_PER_FIRING; ++j) {
+        int distLeft = firingData.laserReturns[j].distance;
+        int distRight = firingData.laserReturns[j + HDL_LASER_PER_FIRING].distance;
+        int intenLeft = firingData.laserReturns[j].intensity;
+        int intenRight = firingData.laserReturns[j + HDL_LASER_PER_FIRING].intensity;
+        //std::cout << i << ": " << j << ", " << j + HDL_LASER_PER_FIRING << ", " << distLeft << " " << distRight << std::endl;
+
+        if (distLeft > distRight && intenLeft > intenRight) {
+          statsCount[0]++;
+        } else if (distLeft > distRight && intenLeft < intenRight) {
+          statsCount[1]++;
+        } else if (distLeft > distRight && intenLeft == intenRight) {
+          statsCount[2]++;
+        } else if (distLeft < distRight && intenLeft > intenRight) {
+          statsCount[3]++;
+        } else if (distLeft < distRight && intenLeft < intenRight) {
+          statsCount[4]++;
+        } else if (distLeft < distRight && intenLeft == intenRight) {
+          statsCount[5]++;
+        } else if (distLeft == distRight && intenLeft > intenRight) {
+          statsCount[6]++;
+        } else if (distLeft == distRight && intenLeft < intenRight) {
+          statsCount[7]++;
+        } else {
+          statsCount[8]++;
+        }
+      }
+    }
   }
+
+  for (int i = 0; i < sizeof(statsCount) / sizeof(statsCount[0]); ++i) {
+      std::cout << statsCount[i] << ", ";
+  }
+  std::cout << std::endl;
 
   // Accumulate HDL64 Status byte data
   if (IsHDL64Data) {
