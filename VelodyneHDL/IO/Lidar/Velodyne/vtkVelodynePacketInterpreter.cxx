@@ -1410,6 +1410,8 @@ void vtkVelodynePacketInterpreter::PreProcessPacket(unsigned char const * data, 
   static int lastnumberOfFiringPackets = 0;
   static int frameNumber;
 
+  bool write_stats_to_file = true;
+
   isNewFrame = false;
   framePositionInPacket = 0;
 
@@ -1436,7 +1438,7 @@ void vtkVelodynePacketInterpreter::PreProcessPacket(unsigned char const * data, 
   this->IsVLS128 = dataPacket->isVLS128();
 
   int statsCount[9] = {0};
-  int zeroCount[4] = {0};
+  //int zeroCount[8] = {0};
 
   for (int i = 0; i < HDL_FIRING_PER_PKT; ++i)
   {
@@ -1484,16 +1486,16 @@ void vtkVelodynePacketInterpreter::PreProcessPacket(unsigned char const * data, 
     }
     PacketProcessingDebugMacro(<< firingData.rotationalPosition << ", ");
 
-    // TODO: check for dual mode
-    if (i % 2 == 0 && IsVLS128) {
+    // Look at pairs of firings in dual mode
+    if (i % 2 == 0 && IsVLS128 && dataPacket->isDualModeReturn() && write_stats_to_file) {
       const HDLFiringData& nextFiringData = dataPacket->firingData[i + 1];
       for (int j = 0; j < HDL_LASER_PER_FIRING; ++j) {
         int distLeft = firingData.laserReturns[j].distance;
         int distRight = nextFiringData.laserReturns[j].distance;
         int intenLeft = firingData.laserReturns[j].intensity;
         int intenRight = nextFiringData.laserReturns[j].intensity;
-        //std::cout << i << ": " << j << ", " << j + HDL_LASER_PER_FIRING << ", " << distLeft << " " << distRight << std::endl;
 
+        // Count comparisons of distance and intensity
         if (distLeft > distRight && intenLeft > intenRight) {
           statsCount[0]++;
         } else if (distLeft > distRight && intenLeft < intenRight) {
@@ -1514,29 +1516,49 @@ void vtkVelodynePacketInterpreter::PreProcessPacket(unsigned char const * data, 
           statsCount[8]++;
         }
 
-        if (distLeft != 0 && distRight == 0) {
+        /*if (distLeft == 0 && intenLeft != 0) {
           zeroCount[0]++;
-        } else if (distLeft == 0 && distRight != 0) {
+        } else if (distLeft != 0 && intenLeft == 0) {
           zeroCount[1]++;
-        } else if (distLeft != 0 && distRight != 0) {
+        } else if (distLeft != 0 && intenLeft != 0) {
           zeroCount[2]++;
-        } else if (distLeft == 0 && distRight == 0) {
+        } else if (distLeft == 0 && intenLeft == 0) {
           zeroCount[3]++;
         }
 
-        //std::cout << "Left: (" << distLeft << ", " << intenLeft << ")" << std::endl;
-        //std::cout << "Right: (" << distRight << ", " << intenRight << ")" << std::endl;
+        if (distRight == 0 && intenRight != 0) {
+          zeroCount[4]++;
+        } else if (distRight != 0 && intenRight == 0) {
+          zeroCount[5]++;
+        } else if (distRight != 0 && intenRight != 0) {
+          zeroCount[6]++;
+        } else if (distRight == 0 && intenRight == 0) {
+          zeroCount[7]++;
+        }*/
+
+        // Count zero vs. nonzero distances
+        /*if (distLeft == 0 && distRight == 0) {
+          zeroCount[0]++;
+        }
+        if (distLeft == 0 && distRight != 0) {
+          zeroCount[1]++;
+        }
+        if (distLeft != 0 && distRight == 0) {
+          zeroCount[2]++;
+        }*/
       }
     }
   }
 
-  for (int i = 0; i < sizeof(statsCount) / sizeof(statsCount[0]); ++i) {
-      outputFile << statsCount[i] << ", ";
+  if (write_stats_to_file) {
+    for (int i = 0; i < sizeof(statsCount) / sizeof(statsCount[0]); ++i) {
+        outputFile << statsCount[i] << ", ";
+    }
+    /*for (int i = 0; i < sizeof(zeroCount) / sizeof(zeroCount[0]); ++i) {
+        outputFile << zeroCount[i] << ", ";
+    }*/
+    outputFile << std::endl;
   }
-  /*for (int i = 0; i < sizeof(zeroCount) / sizeof(zeroCount[0]); ++i) {
-      outputFile << zeroCount[i] << ", ";
-  }*/
-  outputFile << std::endl;
 
   // Accumulate HDL64 Status byte data
   if (IsHDL64Data) {
