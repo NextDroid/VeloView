@@ -1410,7 +1410,7 @@ void vtkVelodynePacketInterpreter::PreProcessPacket(unsigned char const * data, 
   static int lastnumberOfFiringPackets = 0;
   static int frameNumber;
 
-  bool write_stats_to_file = true;
+  bool write_stats_to_file = false;
 
   isNewFrame = false;
   framePositionInPacket = 0;
@@ -1438,7 +1438,7 @@ void vtkVelodynePacketInterpreter::PreProcessPacket(unsigned char const * data, 
   this->IsVLS128 = dataPacket->isVLS128();
 
   int statsCount[9] = {0};
-  //int zeroCount[8] = {0};
+  int zeroCount[8] = {0};
 
   for (int i = 0; i < HDL_FIRING_PER_PKT; ++i)
   {
@@ -1516,6 +1516,7 @@ void vtkVelodynePacketInterpreter::PreProcessPacket(unsigned char const * data, 
           statsCount[8]++;
         }
 
+        // Count zero vs. nonzero for left returns
         /*if (distLeft == 0 && intenLeft != 0) {
           zeroCount[0]++;
         } else if (distLeft != 0 && intenLeft == 0) {
@@ -1526,6 +1527,7 @@ void vtkVelodynePacketInterpreter::PreProcessPacket(unsigned char const * data, 
           zeroCount[3]++;
         }
 
+        // Count zero vs. nonzero for right returns
         if (distRight == 0 && intenRight != 0) {
           zeroCount[4]++;
         } else if (distRight != 0 && intenRight == 0) {
