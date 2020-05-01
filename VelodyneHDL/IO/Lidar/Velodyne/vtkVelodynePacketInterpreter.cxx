@@ -1436,6 +1436,35 @@ void vtkVelodynePacketInterpreter::PreProcessPacket(unsigned char const * data, 
   {
     const HDLFiringData& firingData = dataPacket->firingData[i];
 
+    if (isDPCReturnVLS128() && !isConfidenceBlockOfDPCPacket128())
+    {
+      uint16_t confidenceValues[HDL_LASER_PER_FIRING];
+
+      // The confidence block is two blocks away from the first firing block, and one block away from the second
+      int offset = isFirstBlockOfDPCPacket128() ? 2 : 1;
+
+      for (int j = 0; j < HDL_LASER_PER_FIRING; ++j)
+      {
+        // First block corresponds to the latter half (12 bits) of confidence data (see VLS-128 manual pg. 59)
+        if (isFirstBlockOfDPCPacket128())
+        {
+          // Select last 4 bits of distance, left shift by 12 bits, then | with 8 bits of intensity left shifted by 4 bits
+          confidenceValues[j] = (dataPacket->firingData[i + offset].laserReturns[j].distance & 0x000f << 12) |
+              dataPacket->firingData[i + offset].laserReturns[j].intensity << 4;
+        }
+        else if (isSecondBlockOfDPCPacket128())
+        {
+          // Second firing block confidence data is the first 12 bits of distance
+          confidenceValues[j] = dataPacket->firingData[i + offset].laserReturns[j].distance & 0xfff0;
+        }
+
+        // Sanity check (last 4 bits of confidenceValues[j] should always be empty)
+        if (confidenceValues[j] & 0x000f != 0)
+        {
+          std::cout << "Confidence data arithmetic error" << std::endl;
+        }
+      }
+    }
 
     // Skip dummy blocks of VLS-128 dual mode last 4 blocks
     if (IsVLS128 && (firingData.blockIdentifier == 0 || firingData.blockIdentifier == 0xFFFF))
@@ -1460,7 +1489,8 @@ void vtkVelodynePacketInterpreter::PreProcessPacket(unsigned char const * data, 
       isEmptyFrame = false;
     }
 
-    if (currentFrameState.hasChangedWithValue(firingData))
+    // Do not add confidence blocks if we are in DPC mode
+    if (currentFrameState.hasChangedWithValue(firingData) && !isConfidenceBlockOfDPCPacket128())
     {
       // Add file position if the frame is not empty
       if (!isEmptyFrame || !this->IgnoreEmptyFrames)
