@@ -244,17 +244,17 @@ struct HDLDataPacket
 
   inline bool isDPCReturnVLS128() const { return factoryField1 == DUAL_PLUS_CONFIDENCE; }
 
-  inline bool isFirstBlockOfDPCPacket128() const
+  inline bool isFirstBlockOfDPCPacket128(const int firingBlock) const
   {
     return isDPCReturnVLS128() && (firingBlock % 3 == 0); 
   }
 
-  inline bool isSecondBlockOfDPCPacket128() const
+  inline bool isSecondBlockOfDPCPacket128(const int firingBlock) const
   {
     return isDPCReturnVLS128() && (firingBlock % 3 == 1);
   }
 
-  inline bool isConfidenceBlockOfDPCPacket128() const
+  inline bool isConfidenceBlockOfDPCPacket128(const int firingBlock) const
   {
     return isDPCReturnVLS128() && (firingBlock % 3 == 2);
   }
