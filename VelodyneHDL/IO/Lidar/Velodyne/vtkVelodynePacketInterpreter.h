@@ -93,12 +93,12 @@ protected:
   // geotransform - georeferencing transform
   void ProcessFiring(const HDLFiringData* firingData,
     int firingBlockLaserOffset, int firingBlock, int azimuthDiff, double timestamp,
-    unsigned int rawtime, bool isThisFiringDualReturnData, bool isDualReturnPacket);
+    unsigned int rawtime, bool isThisFiringDualReturnData, bool isDualReturnPacket, uint16_t* confidenceValues);
 
   void PushFiringData(unsigned char laserId, unsigned char rawLaserId,
                       unsigned short azimuth, double timestamp,
                       unsigned int rawtime, const HDLLaserReturn* laserReturn,
-                      const HDLLaserCorrection* correction, bool isFiringDualReturnData);
+                      const HDLLaserCorrection* correction, bool isFiringDualReturnData, uint16_t confidence);
 
   void InitTrigonometricTables();
 
@@ -133,6 +133,7 @@ protected:
   vtkSmartPointer<vtkUnsignedIntArray> Flags;
   vtkSmartPointer<vtkIdTypeArray> DualReturnMatching;
   vtkSmartPointer<vtkDoubleArray> SelectedDualReturn;
+  vtkSmartPointer<vtkUnsignedIntArray> ConfidenceData;
 
   bool ShouldAddDualReturnArray;
 
