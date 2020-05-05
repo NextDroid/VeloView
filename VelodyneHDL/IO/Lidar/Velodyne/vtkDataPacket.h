@@ -235,8 +235,9 @@ struct HDLDataPacket
   inline bool isDualReturnFiringBlock(const int firingBlock) const
   {
     if (isVLS128())
-      return isDualModeReturnVLS128() && isDualBlockOfDualPacket128(firingBlock);
-    if (isHDL64())
+      return (isDualModeReturnVLS128() && isDualBlockOfDualPacket128(firingBlock)) ||
+             (isDPCReturnVLS128() && isSecondBlockOfDPCPacket128(firingBlock));
+    else if (isHDL64())
       return isDualModeReturnHDL64() && isDualBlockOfDualPacket64(firingBlock);
     else
       return isDualModeReturn16Or32() && isDualBlockOfDualPacket16Or32(firingBlock);

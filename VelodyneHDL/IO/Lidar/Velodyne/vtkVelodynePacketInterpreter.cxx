@@ -1000,6 +1000,12 @@ void vtkVelodynePacketInterpreter::PushFiringData(unsigned char laserId, unsigne
                                                   unsigned int rawtime, const HDLLaserReturn *laserReturn,
                                                   const HDLLaserCorrection *correction, bool isFiringDualReturnData, uint16_t confidence)
 {
+  // Test: filter out all values that are not false returns
+  // "Retro Ghost" is bit (7 + 4) of each confidence value
+  /*if (!((confidence & (1 << 11)) >> 11)) {
+    return;
+  }*/
+
   azimuth %= 36000;
   const vtkIdType thisPointId = this->Points->GetNumberOfPoints();
   short intensity = laserReturn->intensity;
