@@ -787,7 +787,7 @@ void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, uns
   // assert(azimuthDiff > 0);
 
   // Add DualReturn-specific arrays if newly detected dual return packet
-  if (dataPacket->isDualModeReturn() && !this->HasDualReturn)
+  if ((dataPacket->isDualModeReturn() || dataPacket->isDPCReturnVLS128()) && !this->HasDualReturn)
   {
     this->HasDualReturn = true;
     this->CurrentFrame->GetPointData()->AddArray(this->DistanceFlag.GetPointer());
@@ -864,7 +864,7 @@ void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, uns
     if (this->FiringsSkip == 0 || firingBlock % (this->FiringsSkip + 1) == 0)
     {
       this->ProcessFiring(firingData, multiBlockLaserIdOffset, firingBlock, azimuthDiff, timestamp,
-        rawtime, dataPacket->isDualReturnFiringBlock(firingBlock), dataPacket->isDualModeReturn(), confidenceValues);
+        rawtime, dataPacket->isDualReturnFiringBlock(firingBlock), dataPacket->isDualModeReturn() || dataPacket->isDPCReturnVLS128(), confidenceValues);
     }
   }
 }
