@@ -795,6 +795,8 @@ void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, uns
     this->CurrentFrame->GetPointData()->AddArray(this->DualReturnMatching.GetPointer());
   }
 
+  int firingBlockDPCAdjustment = 0;
+
   for (; firingBlock < HDL_FIRING_PER_PKT; ++firingBlock)
   {
     const HDLFiringData* firingData = &(dataPacket->firingData[firingBlock]);
@@ -816,6 +818,11 @@ void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, uns
     // Skip confidence blocks of VLS-128 DPC mode
     if (isVLS128 && dataPacket->isDPCReturnVLS128() && dataPacket->isConfidenceBlockOfDPCPacket128(firingBlock))
     {
+      // We will have to adjust for up to 3 confidence blocks per packet
+      if (firingBlockDPCAdjustment > 3) {
+        std::cerr << "firingBlockDPCAdjustment error" << std::endl;
+      }
+      firingBlockDPCAdjustment++;
       continue;
     }
 
@@ -857,13 +864,13 @@ void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, uns
 
     if (isVLS128)
     {
-      azimuthDiff = dataPacket->getRotationalDiffForVLS128(firingBlock);
+      azimuthDiff = dataPacket->getRotationalDiffForVLS128(firingBlock - firingBlockDPCAdjustment);
     }
 
     // Skip this firing every PointSkip
-    if (this->FiringsSkip == 0 || firingBlock % (this->FiringsSkip + 1) == 0)
+    if (this->FiringsSkip == 0 || (firingBlock - firingBlockDPCAdjustment) % (this->FiringsSkip + 1) == 0)
     {
-      this->ProcessFiring(firingData, multiBlockLaserIdOffset, firingBlock, azimuthDiff, timestamp,
+      this->ProcessFiring(firingData, multiBlockLaserIdOffset, firingBlock - firingBlockDPCAdjustment, azimuthDiff, timestamp,
         rawtime, dataPacket->isDualReturnFiringBlock(firingBlock), dataPacket->isDualModeReturn() || dataPacket->isDPCReturnVLS128(), confidenceValues);
     }
   }
