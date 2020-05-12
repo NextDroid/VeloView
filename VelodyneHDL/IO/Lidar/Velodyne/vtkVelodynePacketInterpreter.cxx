@@ -1001,6 +1001,9 @@ void vtkVelodynePacketInterpreter::ProcessFiring(const HDLFiringData *firingData
   }
 }
 
+static double totalCount = 0.0;
+static double testCount = 0.0;
+
 //-----------------------------------------------------------------------------
 void vtkVelodynePacketInterpreter::PushFiringData(unsigned char laserId, unsigned char rawLaserId,
                                                   unsigned short azimuth, double timestamp,
@@ -1031,9 +1034,15 @@ void vtkVelodynePacketInterpreter::PushFiringData(unsigned char laserId, unsigne
   if (this->shouldBeCroppedOut(pos, static_cast<double>(azimuth) / 100.0))
     return;
 
+  totalCount++;
+  if (int(totalCount) % 10000 == 0) {
+    //std::cout << "total count: " << totalCount << ", test count: " << testCount << ", ratio: " << (testCount/totalCount) << std::endl;
+  }
+
   // Do not add any data before here as this might short-circuit
   if (isFiringDualReturnData)
   {
+    testCount++;
     const vtkIdType dualPointId = this->LastPointId[rawLaserId];
     if (dualPointId < this->FirstPointIdOfDualReturnPair)
     {
@@ -1104,7 +1113,6 @@ void vtkVelodynePacketInterpreter::PushFiringData(unsigned char laserId, unsigne
           return;
         }
       }
-
       this->Flags->SetValue(dualPointId, firstFlags);
       this->DistanceFlag->SetValue(dualPointId, MapDistanceFlag(firstFlags));
       this->IntensityFlag->SetValue(dualPointId, MapIntensityFlag(firstFlags));

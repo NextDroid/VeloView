@@ -234,9 +234,10 @@ struct HDLDataPacket
 
   inline bool isDualReturnFiringBlock(const int firingBlock) const
   {
-    if (isVLS128())
-      return (isDualModeReturnVLS128() && isDualBlockOfDualPacket128(firingBlock)) ||
-             (isDPCReturnVLS128() && isSecondBlockOfDPCPacket128(firingBlock));
+    if (isVLS128()) {
+      return ((isDualModeReturnVLS128() && isDualBlockOfDualPacket128(firingBlock)) ||
+             (isDPCReturnVLS128() && isSecondBlockOfDPCPacket128(firingBlock)));
+    }
     else if (isHDL64())
       return isDualModeReturnHDL64() && isDualBlockOfDualPacket64(firingBlock);
     else
@@ -275,7 +276,7 @@ struct HDLDataPacket
 
   inline int getRotationalDiffForVLS128(int firingBlock) const
   {
-    if (static_cast<DualReturnSensorMode>(factoryField1) == DUAL_RETURN)
+    if (static_cast<DualReturnSensorMode>(factoryField1) == DUAL_RETURN || static_cast<DualReturnSensorMode>(factoryField1) == DUAL_PLUS_CONFIDENCE)
     {
       if (firingBlock > 6)
         firingBlock = 6;
