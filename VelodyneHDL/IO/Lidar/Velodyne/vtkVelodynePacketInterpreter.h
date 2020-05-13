@@ -37,7 +37,7 @@ public:
 
   void LoadCalibration(const std::string& filename) override;
 
-  void ProcessPacket(unsigned char const * data, unsigned int dataLength, int startPosition = 0) override;
+  void ProcessPacket(unsigned char const * data, unsigned int dataLength, std::ofstream &outputFile, int startPosition = 0) override;
 
   bool SplitFrame(bool force = false) override;
 
@@ -96,7 +96,7 @@ protected:
   // geotransform - georeferencing transform
   void ProcessFiring(const HDLFiringData* firingData,
     int firingBlockLaserOffset, int firingBlock, int azimuthDiff, double timestamp,
-    unsigned int rawtime, bool isThisFiringDualReturnData, bool isDualReturnPacket);
+    unsigned int rawtime, bool isThisFiringDualReturnData, bool isDualReturnPacket, std::ofstream &outputFile);
 
   void PushFiringData(unsigned char laserId, unsigned char rawLaserId,
                       unsigned short azimuth, double timestamp,

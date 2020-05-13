@@ -46,7 +46,7 @@ class PacketConsumer
 public:
   PacketConsumer();
 
-  void HandleSensorData(const unsigned char* data, unsigned int length);
+  void HandleSensorData(const unsigned char* data, unsigned int length, std::ofstream &outputFile);
 
   // You must lock PacketConsumer.ConsumerMutex while calling this function
   vtkSmartPointer<vtkPolyData> GetFrameForTime(double timeRequest, double& actualTime, int numberOfTrailingFrame = 0);

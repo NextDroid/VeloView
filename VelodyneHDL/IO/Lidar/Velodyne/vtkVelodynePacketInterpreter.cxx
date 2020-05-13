@@ -221,7 +221,13 @@ double VLS128AdjustTimeStamp(int firingblock, int dsr, const bool isDualReturnMo
   }
   else
   {
-    return 13.0 * (firingblock / 2) + (dsr / 4) * 1.4;
+    int groupnumber = 4 * (firingblock / 2) + dsr / 8;
+    if (groupnumber <= 7) {
+      return -8.7 + (groupnumber * 2.665);
+    } else {
+      return -8.7 + (groupnumber * 2.665) + 5.33;
+    }
+    //return 13.0 * (firingblock / 2) + (dsr / 4) * 1.4;
   }
 }
 
@@ -718,8 +724,9 @@ void vtkVelodynePacketInterpreter::LoadCalibration(const std::string& filename)
   AddToCalibrationDataRowNamed("cosVertOffsetCorrection",   cosVertOffsetCorrection)
 }
 
+static int packetCount = 0;
 //-----------------------------------------------------------------------------
-void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, unsigned int dataLength, int startPosition)
+void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, unsigned int dataLength, std::ofstream &outputFile, int startPosition)
 {
   if (!this->IsLidarPacket(data, dataLength))
   {
@@ -832,8 +839,11 @@ void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, uns
     if (this->FiringsSkip == 0 || firingBlock % (this->FiringsSkip + 1) == 0)
     {
       this->ProcessFiring(firingData, multiBlockLaserIdOffset, firingBlock, azimuthDiff, timestamp,
-        rawtime, dataPacket->isDualReturnFiringBlock(firingBlock), dataPacket->isDualModeReturn());
+        rawtime, dataPacket->isDualReturnFiringBlock(firingBlock), dataPacket->isDualModeReturn(), outputFile);
     }
+  }
+  if (packetCount < 99) {
+    packetCount++;
   }
 }
 
@@ -852,7 +862,7 @@ bool vtkVelodynePacketInterpreter::IsLidarPacket(unsigned char const * data, uns
 }
 
 //-----------------------------------------------------------------------------
-void vtkVelodynePacketInterpreter::ProcessFiring(const HDLFiringData *firingData, int firingBlockLaserOffset, int firingBlock, int azimuthDiff, double timestamp, unsigned int rawtime, bool isThisFiringDualReturnData, bool isDualReturnPacket)
+void vtkVelodynePacketInterpreter::ProcessFiring(const HDLFiringData *firingData, int firingBlockLaserOffset, int firingBlock, int azimuthDiff, double timestamp, unsigned int rawtime, bool isThisFiringDualReturnData, bool isDualReturnPacket, std::ofstream &outputFile)
 {
   // First return block of a dual return packet: init last point of laser
   if (!isThisFiringDualReturnData &&
@@ -951,6 +961,10 @@ void vtkVelodynePacketInterpreter::ProcessFiring(const HDLFiringData *firingData
         azimuthDiff * ((timestampadjustment - blockdsr0) / (nextblockdsr0 - blockdsr0)));
       timestampadjustment = vtkMath::Round(timestampadjustment);
     }
+    if (packetCount < 100) {
+      outputFile << setprecision(12) << firingBlock << ", " << timestamp + timestampadjustment << ", " << std::endl;
+    }
+
     if ((!this->IgnoreZeroDistances || firingData->laserReturns[dsr].distance != 0.0) &&
       this->LaserSelection[laserId])
     {

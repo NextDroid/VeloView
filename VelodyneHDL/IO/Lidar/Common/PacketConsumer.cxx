@@ -16,10 +16,10 @@ PacketConsumer::PacketConsumer()
 }
 
 //----------------------------------------------------------------------------
-void PacketConsumer::HandleSensorData(const unsigned char *data, unsigned int length)
+void PacketConsumer::HandleSensorData(const unsigned char *data, unsigned int length, std::ofstream &outputFile)
 {
   boost::lock_guard<boost::mutex> lock(this->ReaderMutex);
-  this->Interpreter->ProcessPacket(data, length);
+  this->Interpreter->ProcessPacket(data, length, outputFile);
   if (this->Interpreter->IsNewFrameReady())
   {
     this->HandleNewData(this->Interpreter->GetLastFrameAvailable());
@@ -90,12 +90,18 @@ void PacketConsumer::ThreadLoop()
 {
   std::string* packet = 0;
   this->Interpreter->ResetCurrentFrame();
+
+  std::ofstream outputCSV;
+  outputCSV.open("timestamps_test.csv");
+
   while (this->Packets->dequeue(packet))
   {
     this->HandleSensorData(
-          reinterpret_cast<const unsigned char*>(packet->c_str()), packet->length());
+          reinterpret_cast<const unsigned char*>(packet->c_str()), packet->length(), outputCSV);
     delete packet;
   }
+
+  outputCSV.close();
 }
 
 //----------------------------------------------------------------------------

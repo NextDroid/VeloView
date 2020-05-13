@@ -65,7 +65,7 @@ public:
    * @param bytesReceived size of the data packet
    * @param startPosition offset in the data packet used when a frame start in the middle of a packet
    */
-  virtual void ProcessPacket(unsigned char const * data, unsigned int dataLength, int startPosition = 0) = 0;
+  virtual void ProcessPacket(unsigned char const * data, unsigned int dataLength, std::ofstream &outputFile, int startPosition = 0) = 0;
 
   /**
    * @brief SplitFrame take the current frame under construction and place it in another buffer

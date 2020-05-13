@@ -169,6 +169,10 @@ vtkSmartPointer<vtkPolyData> vtkLidarReader::GetFrame(int frameNumber)
   int firstFramePositionInPacket = this->FilePositions[frameNumber].Skip;
 
   this->Reader->SetFilePosition(&this->FilePositions[frameNumber].Position);
+
+  std::ofstream outputCSV;
+  outputCSV.open("timestamps.csv");
+
   while (this->Reader->NextPacket(data, dataLength, timeSinceStart))
   {
 
@@ -177,7 +181,7 @@ vtkSmartPointer<vtkPolyData> vtkLidarReader::GetFrame(int frameNumber)
       continue;
     }
 
-    this->Interpreter->ProcessPacket(data, dataLength, firstFramePositionInPacket);
+    this->Interpreter->ProcessPacket(data, dataLength, outputCSV, firstFramePositionInPacket);
 
     // check if the required frames are ready
     if (this->Interpreter->IsNewFrameReady())
@@ -186,6 +190,7 @@ vtkSmartPointer<vtkPolyData> vtkLidarReader::GetFrame(int frameNumber)
     }
     firstFramePositionInPacket = 0;
   }
+  outputCSV.close();
 
   this->Interpreter->SplitFrame(true);
   return this->Interpreter->GetLastFrameAvailable();
