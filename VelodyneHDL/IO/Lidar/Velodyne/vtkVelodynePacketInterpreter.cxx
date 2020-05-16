@@ -218,7 +218,12 @@ double VLS128AdjustTimeStamp(int firingblock, int dsr, const bool isDualReturnMo
   }
   else
   {
-    return 13.0 * (firingblock / 2) + (dsr / 4) * 1.4;
+    int groupnumber = 4 * (firingblock / 2) + dsr / 8;
+    if (groupnumber <= 7) {
+      return -8.7 + (groupnumber * 2.665);
+    } else {
+      return -8.7 + (groupnumber * 2.665) + 5.33;
+    }
   }
 }
 
