@@ -161,15 +161,23 @@ vtkSmartPointer<vtkPolyData> vtkLidarReader::GetFrame(int frameNumber)
   int firstFramePositionInPacket = this->FilePositions[frameNumber].Skip;
 
   this->Reader->SetFilePosition(&this->FilePositions[frameNumber].Position);
-  while (this->Reader->NextPacket(data, dataLength, timeSinceStart))
-  {
 
-    if (!this->Interpreter->IsLidarPacket(data, dataLength))
+  bool firstRead = this->Reader->NextPacket(data, dataLength, timeSinceStart);
+  bool isLidarPacket = this->Interpreter->IsLidarPacket(data, dataLength);
+
+  const unsigned char* nextData = 0;
+  unsigned int nextDataLength = 0;
+  bool isNextLidarPacket = isLidarPacket;
+  while (firstRead && this->Reader->NextPacket(nextData, nextDataLength, timeSinceStart))
+  {
+    isLidarPacket = isNextLidarPacket;
+    isNextLidarPacket = this->Interpreter->IsLidarPacket(nextData, nextDataLength);
+    if (!isLidarPacket || !isNextLidarPacket)
     {
       continue;
     }
 
-    this->Interpreter->ProcessPacket(data, dataLength, firstFramePositionInPacket);
+    this->Interpreter->ProcessPacket(data, dataLength, nextData, firstFramePositionInPacket);
 
     // check if the required frames are ready
     if (this->Interpreter->IsNewFrameReady())
@@ -177,6 +185,9 @@ vtkSmartPointer<vtkPolyData> vtkLidarReader::GetFrame(int frameNumber)
       return this->Interpreter->GetLastFrameAvailable();
     }
     firstFramePositionInPacket = 0;
+
+    data = nextData;
+    dataLength = nextDataLength;
   }
 
   this->Interpreter->SplitFrame(true);

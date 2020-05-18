@@ -721,7 +721,7 @@ void vtkVelodynePacketInterpreter::LoadCalibration(const std::string& filename)
 }
 
 //-----------------------------------------------------------------------------
-void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, unsigned int dataLength, int startPosition)
+void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, unsigned int dataLength, unsigned char const * nextData, int startPosition)
 {
   if (!this->IsLidarPacket(data, dataLength))
   {

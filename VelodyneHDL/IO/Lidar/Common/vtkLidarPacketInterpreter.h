@@ -64,8 +64,9 @@ public:
    * @param data raw data packet
    * @param bytesReceived size of the data packet
    * @param startPosition offset in the data packet used when a frame start in the middle of a packet
+   * @param nextData raw next data packet
    */
-  virtual void ProcessPacket(unsigned char const * data, unsigned int dataLength, int startPosition = 0) = 0;
+  virtual void ProcessPacket(unsigned char const * data, unsigned int dataLength, unsigned char const * nextData, int startPosition = 0) = 0;
 
   /**
    * @brief SplitFrame take the current frame under construction and place it in another buffer

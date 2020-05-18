@@ -34,7 +34,7 @@ public:
 
   void LoadCalibration(const std::string& filename) override;
 
-  void ProcessPacket(unsigned char const * data, unsigned int dataLength, int startPosition = 0) override;
+  void ProcessPacket(unsigned char const * data, unsigned int dataLength, unsigned char const * nextData, int startPosition = 0) override;
 
   bool SplitFrame(bool force = false) override;
 
