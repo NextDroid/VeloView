@@ -826,7 +826,7 @@ void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, uns
       continue;
     }
 
-    uint16_t confidenceValues[HDL_LASER_PER_FIRING] = {0};
+    std::vector<uint16_t> confidenceValues(HDL_LASER_PER_FIRING, 0);
 
     if (isVLS128 && dataPacket->isDPCReturnVLS128() && !dataPacket->isConfidenceBlockOfDPCPacket128(firingBlock))
     {
@@ -839,17 +839,17 @@ void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, uns
         if (dataPacket->isFirstBlockOfDPCPacket128(firingBlock))
         {
           // Select last 4 bits of distance, left shift by 12 bits, then | with 8 bits of intensity left shifted by 4 bits
-          confidenceValues[laserID] = (dataPacket->firingData[firingBlock + offset].laserReturns[laserID].distance & 0x000f << 12) |
+          confidenceValues.at(laserID) = (dataPacket->firingData[firingBlock + offset].laserReturns[laserID].distance & 0x000f << 12) |
               dataPacket->firingData[firingBlock + offset].laserReturns[laserID].intensity << 4;
         }
         else if (dataPacket->isSecondBlockOfDPCPacket128(firingBlock))
         {
           // Second firing block confidence data is the first 12 bits of distance
-          confidenceValues[laserID] = dataPacket->firingData[firingBlock + offset].laserReturns[laserID].distance & 0xfff0;
+          confidenceValues.at(laserID) = dataPacket->firingData[firingBlock + offset].laserReturns[laserID].distance & 0xfff0;
         }
 
         // Sanity check (last 4 bits of confidenceValues[j] should always be empty)
-        if (confidenceValues[laserID] & 0x000f != 0)
+        if (confidenceValues.at(laserID) & 0x000f != 0)
         {
           std::cerr << "Confidence data arithmetic error" << std::endl;
         }
@@ -891,7 +891,7 @@ bool vtkVelodynePacketInterpreter::IsLidarPacket(unsigned char const * data, uns
 }
 
 //-----------------------------------------------------------------------------
-void vtkVelodynePacketInterpreter::ProcessFiring(const HDLFiringData *firingData, int firingBlockLaserOffset, int firingBlock, int azimuthDiff, double timestamp, unsigned int rawtime, bool isThisFiringDualReturnData, bool isDualReturnPacket, uint16_t *confidenceValues)
+void vtkVelodynePacketInterpreter::ProcessFiring(const HDLFiringData *firingData, int firingBlockLaserOffset, int firingBlock, int azimuthDiff, double timestamp, unsigned int rawtime, bool isThisFiringDualReturnData, bool isDualReturnPacket, const std::vector<uint16_t>& confidenceValues)
 {
   // First return block of a dual return packet: init last point of laser
   if (!isThisFiringDualReturnData &&
@@ -996,7 +996,7 @@ void vtkVelodynePacketInterpreter::ProcessFiring(const HDLFiringData *firingData
       this->PushFiringData(laserId, rawLaserId, azimuth + azimuthadjustment,
         timestamp + timestampadjustment, rawtime + static_cast<unsigned int>(timestampadjustment),
         &(firingData->laserReturns[dsr]), &(laser_corrections_[dsr + firingBlockLaserOffset]),
-        isThisFiringDualReturnData, confidenceValues[dsr]);
+        isThisFiringDualReturnData, confidenceValues.at(dsr));
     }
   }
 }

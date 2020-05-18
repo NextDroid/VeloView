@@ -93,7 +93,7 @@ protected:
   // geotransform - georeferencing transform
   void ProcessFiring(const HDLFiringData* firingData,
     int firingBlockLaserOffset, int firingBlock, int azimuthDiff, double timestamp,
-    unsigned int rawtime, bool isThisFiringDualReturnData, bool isDualReturnPacket, uint16_t* confidenceValues);
+    unsigned int rawtime, bool isThisFiringDualReturnData, bool isDualReturnPacket, const std::vector<uint16_t>& confidenceValues);
 
   void PushFiringData(unsigned char laserId, unsigned char rawLaserId,
                       unsigned short azimuth, double timestamp,
