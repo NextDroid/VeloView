@@ -763,14 +763,24 @@ void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, uns
   bool isVLS128 = dataPacket->isVLS128();
   // Compute the list of total azimuth advanced during one full firing block
   std::vector<int> diffs(HDL_FIRING_PER_PKT - 1);
-  for (int i = 0; i < HDL_FIRING_PER_PKT - 1; ++i)
+  int nonZeroDiff = 0; int localDiff = 0;
+  for (int i = 0; i < HDL_FIRING_PER_PKT; ++i)
   {
-    int localDiff = (36000 + 18000 + dataPacket->firingData[i + 1].rotationalPosition -
+    if (i == HDL_FIRING_PER_PKT-1) {
+      localDiff = (36000 + 18000 + nextDataPacket->firingData[0].rotationalPosition -
                       dataPacket->firingData[i].rotationalPosition) %
       36000 - 18000;
-    diffs[i] = localDiff;
-  }
+    } else {
+      localDiff = (36000 + 18000 + dataPacket->firingData[i + 1].rotationalPosition -
+                      dataPacket->firingData[i].rotationalPosition) %
+      36000 - 18000;
+    }
 
+    if (localDiff != 0) {
+      diffs[nonZeroDiff] = localDiff;
+      nonZeroDiff++;
+    }
+  }
 
   if (!IsHDL64Data)
   { // with HDL64, it should be filled by LoadCorrectionsFromStreamData
@@ -778,19 +788,7 @@ void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, uns
     this->ReportedSensorReturnMode = dataPacket->getDualReturnSensorMode();
   }
 
-  std::sort(diffs.begin(), diffs.end());
-  // Assume the median of the packet's rotationalPosition differences
-  int azimuthDiff = diffs[HDL_FIRING_PER_PKT / 2];
-  if (this->IsHDL64Data)
-  {
-    azimuthDiff = diffs[HDL_FIRING_PER_PKT - 2];
-  }
-  else if (isVLS128)
-  {
-    azimuthDiff = diffs[HDL_FIRING_PER_PKT - 1];
-  }
-
-  // assert(azimuthDiff > 0);
+  int firingBlockGroup = HDL_FIRING_PER_PKT / nonZeroDiff;
 
   // Update HasDualReturn in dual and dual plus confidence modes
   if ((dataPacket->isDualModeReturn() || dataPacket->isDPCReturnVLS128()) && !this->HasDualReturn)
@@ -871,10 +869,8 @@ void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, uns
       this->LastTimestamp = std::numeric_limits<unsigned int>::max();
     }
 
-    if (isVLS128)
-    {
-      azimuthDiff = dataPacket->getRotationalDiffForVLS128(firingBlock - firingBlockDPCAdjustment);
-    }
+    int groupIndex = firingBlock/firingBlockGroup;
+    int azimuthDiff = diffs[groupIndex];
 
     // Skip this firing every PointSkip
     if (this->FiringsSkip == 0 || (firingBlock - firingBlockDPCAdjustment) % (this->FiringsSkip + 1) == 0)

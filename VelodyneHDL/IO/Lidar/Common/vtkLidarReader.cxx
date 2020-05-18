@@ -155,7 +155,7 @@ vtkSmartPointer<vtkPolyData> vtkLidarReader::GetFrame(int frameNumber)
     return 0;
   }
 
-  const unsigned char* data = 0;
+  const u_char* data = 0;
   unsigned int dataLength = 0;
   double timeSinceStart;
   int firstFramePositionInPacket = this->FilePositions[frameNumber].Skip;
@@ -165,7 +165,7 @@ vtkSmartPointer<vtkPolyData> vtkLidarReader::GetFrame(int frameNumber)
   bool firstRead = this->Reader->NextPacket(data, dataLength, timeSinceStart);
   bool isLidarPacket = this->Interpreter->IsLidarPacket(data, dataLength);
 
-  const unsigned char* nextData = 0;
+  const u_char* nextData = 0;
   unsigned int nextDataLength = 0;
   bool isNextLidarPacket = isLidarPacket;
   while (firstRead && this->Reader->NextPacket(nextData, nextDataLength, timeSinceStart))
