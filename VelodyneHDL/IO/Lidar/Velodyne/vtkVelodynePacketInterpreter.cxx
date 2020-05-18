@@ -723,7 +723,13 @@ void vtkVelodynePacketInterpreter::LoadCalibration(const std::string& filename)
 //-----------------------------------------------------------------------------
 void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, unsigned int dataLength, unsigned char const * nextData, int startPosition)
 {
-  const HDLDataPacket* dataPacket = reinterpret_cast<const HDLDataPacket*>(data);
+  const HDLDataPacket* dataPacket = prevPacket;
+  if (!InitProcessedPacket) {
+    dataPacket = reinterpret_cast<const HDLDataPacket*>(data);
+  }
+
+  const HDLDataPacket* nextDataPacket = reinterpret_cast<const HDLDataPacket*>(nextData);
+  prevPacket = nextDataPacket;
 
   this->IsHDL64Data |= dataPacket->isHDL64();
 

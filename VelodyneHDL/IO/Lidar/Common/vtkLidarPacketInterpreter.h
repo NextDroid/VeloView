@@ -184,6 +184,9 @@ public:
 
   vtkSetVector6Macro(CropRegion, double)
 
+  vtkSetMacro(InitProcessedPacket, bool)
+  vtkGetMacro(InitProcessedPacket, bool)
+
   vtkMTimeType GetMTime() override;
 
 protected:
@@ -254,6 +257,8 @@ protected:
   //! - vtkLidarProvider::CropModeEnum::Spherical -> Note implemented yet
   //! all distance are in cm and all angle are in degree
   double CropRegion[6] = {0,0,0,0,0,0};
+
+  bool InitProcessedPacket = false;
 
   vtkLidarPacketInterpreter() = default;
   virtual ~vtkLidarPacketInterpreter() = default;

@@ -195,6 +195,8 @@ protected:
 
   bool ShouldValidateCalibrationFromStream = true;
 
+  const HDLDataPacket* prevPacket;
+
   vtkVelodynePacketInterpreter();
   ~vtkVelodynePacketInterpreter();
 
