@@ -723,11 +723,6 @@ void vtkVelodynePacketInterpreter::LoadCalibration(const std::string& filename)
 //-----------------------------------------------------------------------------
 void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, unsigned int dataLength, unsigned char const * nextData, int startPosition)
 {
-  if (!this->IsLidarPacket(data, dataLength))
-  {
-    return;
-  }
-
   const HDLDataPacket* dataPacket = reinterpret_cast<const HDLDataPacket*>(data);
 
   this->IsHDL64Data |= dataPacket->isHDL64();
