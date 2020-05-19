@@ -1001,21 +1001,12 @@ void vtkVelodynePacketInterpreter::ProcessFiring(const HDLFiringData *firingData
   }
 }
 
-//static double totalCount = 0.0;
-//static double testCount = 0.0;
-
 //-----------------------------------------------------------------------------
 void vtkVelodynePacketInterpreter::PushFiringData(unsigned char laserId, unsigned char rawLaserId,
                                                   unsigned short azimuth, double timestamp,
                                                   unsigned int rawtime, const HDLLaserReturn *laserReturn,
                                                   const HDLLaserCorrection *correction, bool isFiringDualReturnData, uint16_t confidence)
 {
-  // Test: filter out all values that are not false returns
-  // "Retro Ghost" is bit (7 + 4) of each confidence value
-  /*if (!((confidence & (1 << 11)) >> 11)) {
-    return;
-  }*/
-
   azimuth %= 36000;
   const vtkIdType thisPointId = this->Points->GetNumberOfPoints();
   short intensity = laserReturn->intensity;
@@ -1034,15 +1025,9 @@ void vtkVelodynePacketInterpreter::PushFiringData(unsigned char laserId, unsigne
   if (this->shouldBeCroppedOut(pos, static_cast<double>(azimuth) / 100.0))
     return;
 
-  /*totalCount++;
-  if (int(totalCount) % 10000 == 0) {
-    std::cout << "total count: " << totalCount << ", test count: " << testCount << ", ratio: " << (testCount/totalCount) << std::endl;
-  }*/
-
   // Do not add any data before here as this might short-circuit
   if (isFiringDualReturnData)
   {
-    //testCount++;
     const vtkIdType dualPointId = this->LastPointId[rawLaserId];
     if (dualPointId < this->FirstPointIdOfDualReturnPair)
     {
