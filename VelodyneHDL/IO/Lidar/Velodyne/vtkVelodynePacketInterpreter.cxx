@@ -787,13 +787,15 @@ void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, uns
   // assert(azimuthDiff > 0);
 
   // Add DualReturn-specific arrays if newly detected dual return packet
-  if (dataPacket->isDualModeReturn() && !this->HasDualReturn)
+  if ((dataPacket->isDualModeReturn() || dataPacket->isDPCReturnVLS128()) && !this->HasDualReturn)
   {
     this->HasDualReturn = true;
     this->CurrentFrame->GetPointData()->AddArray(this->DistanceFlag.GetPointer());
     this->CurrentFrame->GetPointData()->AddArray(this->IntensityFlag.GetPointer());
     this->CurrentFrame->GetPointData()->AddArray(this->DualReturnMatching.GetPointer());
   }
+
+  int firingBlockDPCAdjustment = 0;
 
   for (; firingBlock < HDL_FIRING_PER_PKT; ++firingBlock)
   {
@@ -813,6 +815,46 @@ void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, uns
       continue;
     }
 
+    // Skip confidence blocks of VLS-128 DPC mode
+    if (isVLS128 && dataPacket->isDPCReturnVLS128() && dataPacket->isConfidenceBlockOfDPCPacket128(firingBlock))
+    {
+      // We will have to adjust for up to 3 confidence blocks per packet
+      if (firingBlockDPCAdjustment > 3) {
+        std::cerr << "firingBlockDPCAdjustment error" << std::endl;
+      }
+      firingBlockDPCAdjustment++;
+      continue;
+    }
+
+    std::vector<uint16_t> confidenceValues(HDL_LASER_PER_FIRING, 0);
+
+    if (isVLS128 && dataPacket->isDPCReturnVLS128() && !dataPacket->isConfidenceBlockOfDPCPacket128(firingBlock))
+    {
+      // The confidence block is two blocks away from the first firing block, and one block away from the second
+      int offset = dataPacket->isFirstBlockOfDPCPacket128(firingBlock) ? 2 : 1;
+
+      for (int laserID = 0; laserID < HDL_LASER_PER_FIRING; ++laserID)
+      {
+        // First block corresponds to the latter half (12 bits) of confidence data (see VLS-128 manual pg. 59)
+        if (dataPacket->isFirstBlockOfDPCPacket128(firingBlock))
+        {
+          // Select last 4 bits of distance, left shift by 12 bits, then | with 8 bits of intensity left shifted by 4 bits
+          confidenceValues.at(laserID) = (dataPacket->firingData[firingBlock + offset].laserReturns[laserID].distance & 0x000f << 12) |
+              dataPacket->firingData[firingBlock + offset].laserReturns[laserID].intensity << 4;
+        }
+        else if (dataPacket->isSecondBlockOfDPCPacket128(firingBlock))
+        {
+          // Second firing block confidence data is the first 12 bits of distance
+          confidenceValues.at(laserID) = dataPacket->firingData[firingBlock + offset].laserReturns[laserID].distance & 0xfff0;
+        }
+
+        // Sanity check (last 4 bits of confidenceValues[j] should always be empty)
+        if (confidenceValues.at(laserID) & 0x000f != 0)
+        {
+          std::cerr << "Confidence data arithmetic error" << std::endl;
+        }
+      }
+    }
 
     if (this->CurrentFrameState->hasChangedWithValue(*firingData))
     {
@@ -822,14 +864,14 @@ void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, uns
 
     if (isVLS128)
     {
-      azimuthDiff = dataPacket->getRotationalDiffForVLS128(firingBlock);
+      azimuthDiff = dataPacket->getRotationalDiffForVLS128(firingBlock - firingBlockDPCAdjustment);
     }
 
     // Skip this firing every PointSkip
-    if (this->FiringsSkip == 0 || firingBlock % (this->FiringsSkip + 1) == 0)
+    if (this->FiringsSkip == 0 || (firingBlock - firingBlockDPCAdjustment) % (this->FiringsSkip + 1) == 0)
     {
-      this->ProcessFiring(firingData, multiBlockLaserIdOffset, firingBlock, azimuthDiff, timestamp,
-        rawtime, dataPacket->isDualReturnFiringBlock(firingBlock), dataPacket->isDualModeReturn());
+      this->ProcessFiring(firingData, multiBlockLaserIdOffset, firingBlock - firingBlockDPCAdjustment, azimuthDiff, timestamp,
+        rawtime, dataPacket->isDualReturnFiringBlock(firingBlock), dataPacket->isDualModeReturn() || dataPacket->isDPCReturnVLS128(), confidenceValues);
     }
   }
 }
@@ -849,7 +891,7 @@ bool vtkVelodynePacketInterpreter::IsLidarPacket(unsigned char const * data, uns
 }
 
 //-----------------------------------------------------------------------------
-void vtkVelodynePacketInterpreter::ProcessFiring(const HDLFiringData *firingData, int firingBlockLaserOffset, int firingBlock, int azimuthDiff, double timestamp, unsigned int rawtime, bool isThisFiringDualReturnData, bool isDualReturnPacket)
+void vtkVelodynePacketInterpreter::ProcessFiring(const HDLFiringData *firingData, int firingBlockLaserOffset, int firingBlock, int azimuthDiff, double timestamp, unsigned int rawtime, bool isThisFiringDualReturnData, bool isDualReturnPacket, const std::vector<uint16_t>& confidenceValues)
 {
   // First return block of a dual return packet: init last point of laser
   if (!isThisFiringDualReturnData &&
@@ -954,7 +996,7 @@ void vtkVelodynePacketInterpreter::ProcessFiring(const HDLFiringData *firingData
       this->PushFiringData(laserId, rawLaserId, azimuth + azimuthadjustment,
         timestamp + timestampadjustment, rawtime + static_cast<unsigned int>(timestampadjustment),
         &(firingData->laserReturns[dsr]), &(laser_corrections_[dsr + firingBlockLaserOffset]),
-        isThisFiringDualReturnData);
+        isThisFiringDualReturnData, confidenceValues.at(dsr));
     }
   }
 }
@@ -963,7 +1005,7 @@ void vtkVelodynePacketInterpreter::ProcessFiring(const HDLFiringData *firingData
 void vtkVelodynePacketInterpreter::PushFiringData(unsigned char laserId, unsigned char rawLaserId,
                                                   unsigned short azimuth, double timestamp,
                                                   unsigned int rawtime, const HDLLaserReturn *laserReturn,
-                                                  const HDLLaserCorrection *correction, bool isFiringDualReturnData)
+                                                  const HDLLaserCorrection *correction, bool isFiringDualReturnData, uint16_t confidence)
 {
   azimuth %= 36000;
   const vtkIdType thisPointId = this->Points->GetNumberOfPoints();
@@ -1056,7 +1098,6 @@ void vtkVelodynePacketInterpreter::PushFiringData(unsigned char laserId, unsigne
           return;
         }
       }
-
       this->Flags->SetValue(dualPointId, firstFlags);
       this->DistanceFlag->SetValue(dualPointId, MapDistanceFlag(firstFlags));
       this->IntensityFlag->SetValue(dualPointId, MapIntensityFlag(firstFlags));
@@ -1090,6 +1131,7 @@ void vtkVelodynePacketInterpreter::PushFiringData(unsigned char laserId, unsigne
   this->DistanceRaw->InsertNextValue(laserReturn->distance);
   this->LastPointId[rawLaserId] = thisPointId;
   this->VerticalAngle->InsertNextValue(this->laser_corrections_[laserId].verticalCorrection);
+  this->ConfidenceData->InsertNextValue(confidence);
 }
 
 //-----------------------------------------------------------------------------
@@ -1333,6 +1375,7 @@ vtkSmartPointer<vtkPolyData> vtkVelodynePacketInterpreter::CreateNewEmptyFrame(v
   this->DualReturnMatching =
     CreateDataArray<vtkIdTypeArray>("dual_return_matching", numberOfPoints, prereservedNumberOfPoints, nullptr);
   this->VerticalAngle = CreateDataArray<vtkDoubleArray>("vertical_angle", numberOfPoints, prereservedNumberOfPoints, polyData);
+  this->ConfidenceData = CreateDataArray<vtkUnsignedIntArray>("confidence", numberOfPoints, prereservedNumberOfPoints, polyData);
 
   // FieldData : RPM
   vtkSmartPointer<vtkDoubleArray> rpmData = vtkSmartPointer<vtkDoubleArray>::New();
@@ -1434,8 +1477,13 @@ void vtkVelodynePacketInterpreter::PreProcessPacket(unsigned char const * data, 
 
   for (int i = 0; i < HDL_FIRING_PER_PKT; ++i)
   {
-    const HDLFiringData& firingData = dataPacket->firingData[i];
+    // Skip confidence blocks of VLS-128 DPC mode
+    if (IsVLS128 && dataPacket->isDPCReturnVLS128() && dataPacket->isConfidenceBlockOfDPCPacket128(i))
+    {
+      continue;
+    }
 
+    const HDLFiringData& firingData = dataPacket->firingData[i];
 
     // Skip dummy blocks of VLS-128 dual mode last 4 blocks
     if (IsVLS128 && (firingData.blockIdentifier == 0 || firingData.blockIdentifier == 0xFFFF))

@@ -118,6 +118,7 @@ enum DualReturnSensorMode
   STRONGEST_RETURN = 0x37,
   LAST_RETURN = 0x38,
   DUAL_RETURN = 0x39,
+  DUAL_PLUS_CONFIDENCE = 0x3B,
 };
 
 static inline std::string DualReturnSensorModeToString(DualReturnSensorMode type)
@@ -130,6 +131,8 @@ static inline std::string DualReturnSensorModeToString(DualReturnSensorMode type
       return "LAST RETURN";
     case DualReturnSensorMode::DUAL_RETURN:
       return "DUAL RETURN";
+    case DualReturnSensorMode::DUAL_PLUS_CONFIDENCE:
+      return "DUAL PLUS CONFIDENCE";
     default:
       return "Unkown";
   }
@@ -231,12 +234,31 @@ struct HDLDataPacket
 
   inline bool isDualReturnFiringBlock(const int firingBlock) const
   {
-    if (isVLS128())
-      return isDualModeReturnVLS128() && isDualBlockOfDualPacket128(firingBlock);
-    if (isHDL64())
+    if (isVLS128()) {
+      return ((isDualModeReturnVLS128() && isDualBlockOfDualPacket128(firingBlock)) ||
+             (isDPCReturnVLS128() && isSecondBlockOfDPCPacket128(firingBlock)));
+    }
+    else if (isHDL64())
       return isDualModeReturnHDL64() && isDualBlockOfDualPacket64(firingBlock);
     else
       return isDualModeReturn16Or32() && isDualBlockOfDualPacket16Or32(firingBlock);
+  }
+
+  inline bool isDPCReturnVLS128() const { return factoryField1 == DUAL_PLUS_CONFIDENCE; }
+
+  inline bool isFirstBlockOfDPCPacket128(const int firingBlock) const
+  {
+    return isDPCReturnVLS128() && (firingBlock % 3 == 0); 
+  }
+
+  inline bool isSecondBlockOfDPCPacket128(const int firingBlock) const
+  {
+    return isDPCReturnVLS128() && (firingBlock % 3 == 1);
+  }
+
+  inline bool isConfidenceBlockOfDPCPacket128(const int firingBlock) const
+  {
+    return isDPCReturnVLS128() && (firingBlock % 3 == 2);
   }
 
   inline static bool isDualBlockOfDualPacket128(const int firingBlock)
@@ -254,7 +276,7 @@ struct HDLDataPacket
 
   inline int getRotationalDiffForVLS128(int firingBlock) const
   {
-    if (static_cast<DualReturnSensorMode>(factoryField1) == DUAL_RETURN)
+    if (static_cast<DualReturnSensorMode>(factoryField1) == DUAL_RETURN || static_cast<DualReturnSensorMode>(factoryField1) == DUAL_PLUS_CONFIDENCE)
     {
       if (firingBlock > 6)
         firingBlock = 6;
