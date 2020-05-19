@@ -1477,6 +1477,12 @@ void vtkVelodynePacketInterpreter::PreProcessPacket(unsigned char const * data, 
 
   for (int i = 0; i < HDL_FIRING_PER_PKT; ++i)
   {
+    // Skip confidence blocks of VLS-128 DPC mode
+    if (IsVLS128 && dataPacket->isDPCReturnVLS128() && dataPacket->isConfidenceBlockOfDPCPacket128(i))
+    {
+      continue;
+    }
+
     const HDLFiringData& firingData = dataPacket->firingData[i];
 
     // Skip dummy blocks of VLS-128 dual mode last 4 blocks
@@ -1503,7 +1509,7 @@ void vtkVelodynePacketInterpreter::PreProcessPacket(unsigned char const * data, 
     }
 
     // Do not add confidence blocks if we are in DPC mode
-    if (currentFrameState.hasChangedWithValue(firingData) && !dataPacket->isConfidenceBlockOfDPCPacket128(i))
+    if (currentFrameState.hasChangedWithValue(firingData))
     {
       // Add file position if the frame is not empty
       if (!isEmptyFrame || !this->IgnoreEmptyFrames)
