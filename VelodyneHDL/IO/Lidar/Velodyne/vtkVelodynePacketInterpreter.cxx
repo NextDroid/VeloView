@@ -1508,7 +1508,6 @@ void vtkVelodynePacketInterpreter::PreProcessPacket(unsigned char const * data, 
       isEmptyFrame = false;
     }
 
-    // Do not add confidence blocks if we are in DPC mode
     if (currentFrameState.hasChangedWithValue(firingData))
     {
       // Add file position if the frame is not empty
