@@ -133,7 +133,7 @@ protected:
   vtkSmartPointer<vtkUnsignedIntArray> Flags;
   vtkSmartPointer<vtkIdTypeArray> DualReturnMatching;
   vtkSmartPointer<vtkDoubleArray> SelectedDualReturn;
-  vtkSmartPointer<vtkUnsignedIntArray> ConfidenceData;
+  vtkSmartPointer<vtkUnsignedShortArray> ConfidenceData;
 
   bool ShouldAddDualReturnArray;
 

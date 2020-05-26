@@ -797,6 +797,8 @@ void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, uns
 
   int firingBlockDPCAdjustment = 0;
 
+  std::vector<uint16_t> confidenceValues(HDL_LASER_PER_FIRING, 0);
+
   for (; firingBlock < HDL_FIRING_PER_PKT; ++firingBlock)
   {
     const HDLFiringData* firingData = &(dataPacket->firingData[firingBlock]);
@@ -826,8 +828,6 @@ void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, uns
       continue;
     }
 
-    std::vector<uint16_t> confidenceValues(HDL_LASER_PER_FIRING, 0);
-
     if (isVLS128 && dataPacket->isDPCReturnVLS128() && !dataPacket->isConfidenceBlockOfDPCPacket128(firingBlock))
     {
       // The confidence block is two blocks away from the first firing block, and one block away from the second
@@ -836,16 +836,17 @@ void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, uns
       for (int laserID = 0; laserID < HDL_LASER_PER_FIRING; ++laserID)
       {
         // First block corresponds to the latter half (12 bits) of confidence data (see VLS-128 manual pg. 59)
-        if (dataPacket->isFirstBlockOfDPCPacket128(firingBlock))
-        {
+        if (dataPacket->isFirstBlockOfDPCPacket128(firingBlock)) {
           // Select last 4 bits of distance, left shift by 12 bits, then | with 8 bits of intensity left shifted by 4 bits
           confidenceValues.at(laserID) = (dataPacket->firingData[firingBlock + offset].laserReturns[laserID].distance & 0x000f << 12) |
               dataPacket->firingData[firingBlock + offset].laserReturns[laserID].intensity << 4;
         }
-        else if (dataPacket->isSecondBlockOfDPCPacket128(firingBlock))
-        {
+        else if (dataPacket->isSecondBlockOfDPCPacket128(firingBlock)) {
           // Second firing block confidence data is the first 12 bits of distance
           confidenceValues.at(laserID) = dataPacket->firingData[firingBlock + offset].laserReturns[laserID].distance & 0xfff0;
+        }
+        else {
+          std::cout << "Warning: confidence not being set" << std::endl;
         }
 
         // Sanity check (last 4 bits of confidenceValues[j] should always be empty)
@@ -1375,7 +1376,7 @@ vtkSmartPointer<vtkPolyData> vtkVelodynePacketInterpreter::CreateNewEmptyFrame(v
   this->DualReturnMatching =
     CreateDataArray<vtkIdTypeArray>("dual_return_matching", numberOfPoints, prereservedNumberOfPoints, nullptr);
   this->VerticalAngle = CreateDataArray<vtkDoubleArray>("vertical_angle", numberOfPoints, prereservedNumberOfPoints, polyData);
-  this->ConfidenceData = CreateDataArray<vtkUnsignedIntArray>("confidence", numberOfPoints, prereservedNumberOfPoints, polyData);
+  this->ConfidenceData = CreateDataArray<vtkUnsignedShortArray>("confidence", numberOfPoints, prereservedNumberOfPoints, polyData);
 
   // FieldData : RPM
   vtkSmartPointer<vtkDoubleArray> rpmData = vtkSmartPointer<vtkDoubleArray>::New();
