@@ -165,6 +165,10 @@ vtkSmartPointer<vtkPolyData> vtkLidarReader::GetFrame(int frameNumber)
   bool firstRead = this->Reader->NextPacket(data, dataLength, timeSinceStart);
   bool isLidarPacket = this->Interpreter->IsLidarPacket(data, dataLength);
 
+  if (isLidarPacket) {
+    this->Interpreter->CopyPacket(data, dataLength);
+  }
+
   const u_char* nextData = 0;
   unsigned int nextDataLength = 0;
   bool isNextLidarPacket = isLidarPacket;
@@ -172,8 +176,7 @@ vtkSmartPointer<vtkPolyData> vtkLidarReader::GetFrame(int frameNumber)
   {
     isLidarPacket = isNextLidarPacket;
     isNextLidarPacket = this->Interpreter->IsLidarPacket(nextData, nextDataLength);
-    if (!isLidarPacket || !isNextLidarPacket)
-    {
+    if (!isLidarPacket || !isNextLidarPacket) {
       continue;
     }
 
@@ -181,8 +184,7 @@ vtkSmartPointer<vtkPolyData> vtkLidarReader::GetFrame(int frameNumber)
     this->Interpreter->SetInitProcessedPacket(true);
 
     // check if the required frames are ready
-    if (this->Interpreter->IsNewFrameReady())
-    {
+    if (this->Interpreter->IsNewFrameReady()) {
       this->Interpreter->SetInitProcessedPacket(false);
       return this->Interpreter->GetLastFrameAvailable();
     }

@@ -56,6 +56,12 @@ public:
   virtual vtkSmartPointer<vtkTable> GetCalibrationTable() { return this->CalibrationData.Get(); }
 
   /**
+   * @brief CopyPacket copies a packet. To interpret a packet, an interpreter may need to know its previous packet
+   * @param data raw data packet
+   */
+  virtual void CopyPacket(unsigned char const * data, unsigned int dataLength) = 0;
+
+  /**
    * @brief ProcessPacket process the data packet to create incrementaly the frame.
    * Each time a packet is processed by the function, the points which are encoded
    * in the packet are decoded using the calibration information and add to the frame. A warning
