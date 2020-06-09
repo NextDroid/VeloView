@@ -786,14 +786,16 @@ void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, uns
 
   // assert(azimuthDiff > 0);
 
-  // Add DualReturn-specific arrays if newly detected dual return packet
+  // Update HasDualReturn in dual and dual plus confidence modes
   if ((dataPacket->isDualModeReturn() || dataPacket->isDPCReturnVLS128()) && !this->HasDualReturn)
   {
     this->HasDualReturn = true;
-    this->CurrentFrame->GetPointData()->AddArray(this->DistanceFlag.GetPointer());
-    this->CurrentFrame->GetPointData()->AddArray(this->IntensityFlag.GetPointer());
-    this->CurrentFrame->GetPointData()->AddArray(this->DualReturnMatching.GetPointer());
   }
+
+  // Add DualReturn-specific arrays even in single mode; set to all zeroes
+  this->CurrentFrame->GetPointData()->AddArray(this->DistanceFlag.GetPointer());
+  this->CurrentFrame->GetPointData()->AddArray(this->IntensityFlag.GetPointer());
+  this->CurrentFrame->GetPointData()->AddArray(this->DualReturnMatching.GetPointer());
 
   int firingBlockDPCAdjustment = 0;
 
