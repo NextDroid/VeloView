@@ -36,7 +36,7 @@ public:
 
   void CopyPacket(unsigned char const * data, unsigned int dataLength) override;
 
-  void ProcessPacket(unsigned char const * data, unsigned int dataLength, unsigned char const * nextData, int startPosition = 0) override;
+  void ProcessPacket(unsigned char const * nextData, int startPosition = 0) override;
 
   bool SplitFrame(bool force = false) override;
 
@@ -197,7 +197,7 @@ protected:
 
   bool ShouldValidateCalibrationFromStream = true;
 
-  HDLDataPacket prevPacket;
+  HDLDataPacket currentPacket;
 
   vtkVelodynePacketInterpreter();
   ~vtkVelodynePacketInterpreter();

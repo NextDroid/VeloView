@@ -67,12 +67,11 @@ public:
    * in the packet are decoded using the calibration information and add to the frame. A warning
    * should be raise in case the calibration information does not match the data
    * (ex: factory field, number of laser, ...)
-   * @param data raw data packet
-   * @param bytesReceived size of the data packet
+   * The data packet is now a member variable and is no longer passed to this function.
    * @param startPosition offset in the data packet used when a frame start in the middle of a packet
    * @param nextData raw next data packet
    */
-  virtual void ProcessPacket(unsigned char const * data, unsigned int dataLength, unsigned char const * nextData, int startPosition = 0) = 0;
+  virtual void ProcessPacket(unsigned char const * nextData, int startPosition = 0) = 0;
 
   /**
    * @brief SplitFrame take the current frame under construction and place it in another buffer

@@ -723,36 +723,40 @@ void vtkVelodynePacketInterpreter::LoadCalibration(const std::string& filename)
 //-----------------------------------------------------------------------------
 void vtkVelodynePacketInterpreter::CopyPacket(unsigned char const * data, unsigned int dataLength)
 {
-  std::memcpy(&prevPacket, reinterpret_cast<const HDLDataPacket*>(data), dataLength);
+  std::memcpy(&currentPacket, reinterpret_cast<const HDLDataPacket*>(data), dataLength);
 }
 
 //-----------------------------------------------------------------------------
-void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, unsigned int dataLength, unsigned char const * nextData, int startPosition)
+void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * nextData, int startPosition)
 {
   const HDLDataPacket* nextDataPacket = reinterpret_cast<const HDLDataPacket*>(nextData);
 
-  this->IsHDL64Data |= prevPacket.isHDL64();
+  this->IsHDL64Data |= currentPacket.isHDL64();
 
   // Accumulate HDL64 Status byte data
   if (IsHDL64Data && this->IsCorrectionFromLiveStream &&
     !this->IsCalibrated)
   {
-    this->rollingCalibrationData->appendData(prevPacket.gpsTimestamp, prevPacket.factoryField1, prevPacket.factoryField2);
+    this->rollingCalibrationData->appendData(currentPacket.gpsTimestamp, currentPacket.factoryField1, currentPacket.factoryField2);
     this->HDL64LoadCorrectionsFromStreamData();
     return;
   }
 
+  // Timestamp test
+  /*std::cout << "Current packet timestamp: " << currentPacket.gpsTimestamp << std::endl;
+  std::cout << "Next packet timestamp: " << nextDataPacket->gpsTimestamp << std::endl;*/
+
   if (this->ShouldCheckSensor)
   {
-    this->CheckReportedSensorAndCalibrationFileConsistent(&prevPacket);
+    this->CheckReportedSensorAndCalibrationFileConsistent(&currentPacket);
     ShouldCheckSensor = false;
   }
 
-  const unsigned int rawtime = prevPacket.gpsTimestamp;
-  const double timestamp = this->ComputeTimestamp(prevPacket.gpsTimestamp);
+  const unsigned int rawtime = currentPacket.gpsTimestamp;
+  const double timestamp = this->ComputeTimestamp(currentPacket.gpsTimestamp);
 
   // Update the rpm computation (by packets)
-  this->RpmCalculator_->AddData(&prevPacket, rawtime);
+  this->RpmCalculator_->AddData(&currentPacket, rawtime);
 
   // Update the transforms here and then call internal
   // transform
@@ -760,7 +764,7 @@ void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, uns
 
   int firingBlock = startPosition;
 
-  bool isVLS128 = prevPacket.isVLS128();
+  bool isVLS128 = currentPacket.isVLS128();
   // Compute the list of total azimuth advanced during one full firing block
   std::vector<int> diffs(HDL_FIRING_PER_PKT - 1);
   int nonZeroDiff = 0; int localDiff = 0;
@@ -768,11 +772,11 @@ void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, uns
   {
     if (i == HDL_FIRING_PER_PKT-1) {
       localDiff = (36000 + 18000 + nextDataPacket->firingData[0].rotationalPosition -
-                      prevPacket.firingData[i].rotationalPosition) %
+                      currentPacket.firingData[i].rotationalPosition) %
       36000 - 18000;
     } else {
-      localDiff = (36000 + 18000 + prevPacket.firingData[i + 1].rotationalPosition -
-                      prevPacket.firingData[i].rotationalPosition) %
+      localDiff = (36000 + 18000 + currentPacket.firingData[i + 1].rotationalPosition -
+                      currentPacket.firingData[i].rotationalPosition) %
       36000 - 18000;
     }
 
@@ -784,14 +788,14 @@ void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, uns
 
   if (!IsHDL64Data)
   { // with HDL64, it should be filled by LoadCorrectionsFromStreamData
-    this->ReportedSensor = prevPacket.getSensorType();
-    this->ReportedSensorReturnMode = prevPacket.getDualReturnSensorMode();
+    this->ReportedSensor = currentPacket.getSensorType();
+    this->ReportedSensorReturnMode = currentPacket.getDualReturnSensorMode();
   }
 
   int firingBlockGroup = HDL_FIRING_PER_PKT / nonZeroDiff;
 
   // Update HasDualReturn in dual and dual plus confidence modes
-  if ((dataPacket->isDualModeReturn() || dataPacket->isDPCReturnVLS128()) && !this->HasDualReturn)
+  if ((currentPacket.isDualModeReturn() || currentPacket.isDPCReturnVLS128()) && !this->HasDualReturn)
   {
     this->HasDualReturn = true;
   }
@@ -807,7 +811,7 @@ void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, uns
 
   for (; firingBlock < HDL_FIRING_PER_PKT; ++firingBlock)
   {
-    const HDLFiringData* firingData = &(prevPacket.firingData[firingBlock]);
+    const HDLFiringData* firingData = &(currentPacket.firingData[firingBlock]);
     // clang-format off
     int multiBlockLaserIdOffset =
         (firingData->blockIdentifier == BLOCK_0_TO_31)  ?  0 :(
@@ -824,7 +828,7 @@ void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, uns
     }
 
     // Skip confidence blocks of VLS-128 DPC mode
-    if (isVLS128 && prevPacket.isDPCReturnVLS128() && prevPacket.isConfidenceBlockOfDPCPacket128(firingBlock))
+    if (isVLS128 && currentPacket.isDPCReturnVLS128() && currentPacket.isConfidenceBlockOfDPCPacket128(firingBlock))
     {
       // We will have to adjust for up to 3 confidence blocks per packet
       if (firingBlockDPCAdjustment > 3) {
@@ -834,22 +838,22 @@ void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, uns
       continue;
     }
 
-    if (isVLS128 && prevPacket.isDPCReturnVLS128() && !prevPacket.isConfidenceBlockOfDPCPacket128(firingBlock))
+    if (isVLS128 && currentPacket.isDPCReturnVLS128() && !currentPacket.isConfidenceBlockOfDPCPacket128(firingBlock))
     {
       // The confidence block is two blocks away from the first firing block, and one block away from the second
-      int offset = prevPacket.isFirstBlockOfDPCPacket128(firingBlock) ? 2 : 1;
+      int offset = currentPacket.isFirstBlockOfDPCPacket128(firingBlock) ? 2 : 1;
 
       for (int laserID = 0; laserID < HDL_LASER_PER_FIRING; ++laserID)
       {
         // First block corresponds to the latter half (12 bits) of confidence data (see VLS-128 manual pg. 59)
-        if (prevPacket.isFirstBlockOfDPCPacket128(firingBlock)) {
+        if (currentPacket.isFirstBlockOfDPCPacket128(firingBlock)) {
           // Select last 4 bits of distance, left shift by 12 bits, then | with 8 bits of intensity left shifted by 4 bits
-          confidenceValues.at(laserID) = (prevPacket.firingData[firingBlock + offset].laserReturns[laserID].distance & 0x000f << 12) |
-              prevPacket.firingData[firingBlock + offset].laserReturns[laserID].intensity << 4;
+          confidenceValues.at(laserID) = (currentPacket.firingData[firingBlock + offset].laserReturns[laserID].distance & 0x000f << 12) |
+              currentPacket.firingData[firingBlock + offset].laserReturns[laserID].intensity << 4;
         }
-        else if (prevPacket.isSecondBlockOfDPCPacket128(firingBlock)) {
+        else if (currentPacket.isSecondBlockOfDPCPacket128(firingBlock)) {
           // Second firing block confidence data is the first 12 bits of distance
-          confidenceValues.at(laserID) = prevPacket.firingData[firingBlock + offset].laserReturns[laserID].distance & 0xfff0;
+          confidenceValues.at(laserID) = currentPacket.firingData[firingBlock + offset].laserReturns[laserID].distance & 0xfff0;
         }
         else {
           std::cout << "Warning: confidence not being set" << std::endl;
@@ -876,7 +880,7 @@ void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, uns
     if (this->FiringsSkip == 0 || (firingBlock - firingBlockDPCAdjustment) % (this->FiringsSkip + 1) == 0)
     {
       this->ProcessFiring(firingData, multiBlockLaserIdOffset, firingBlock - firingBlockDPCAdjustment, azimuthDiff, timestamp,
-        rawtime, prevPacket.isDualReturnFiringBlock(firingBlock), prevPacket.isDualModeReturn() || prevPacket.isDPCReturnVLS128(), confidenceValues);
+        rawtime, currentPacket.isDualReturnFiringBlock(firingBlock), currentPacket.isDualModeReturn() || currentPacket.isDPCReturnVLS128(), confidenceValues);
     }
   }
 }

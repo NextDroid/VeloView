@@ -180,7 +180,7 @@ vtkSmartPointer<vtkPolyData> vtkLidarReader::GetFrame(int frameNumber)
       continue;
     }
 
-    this->Interpreter->ProcessPacket(data, dataLength, nextData, firstFramePositionInPacket);
+    this->Interpreter->ProcessPacket(nextData, firstFramePositionInPacket);
     this->Interpreter->SetInitProcessedPacket(true);
 
     // check if the required frames are ready
@@ -190,8 +190,10 @@ vtkSmartPointer<vtkPolyData> vtkLidarReader::GetFrame(int frameNumber)
     }
     firstFramePositionInPacket = 0;
 
-    data = nextData;
-    dataLength = nextDataLength;
+    /*data = nextData;
+    dataLength = nextDataLength;*/
+
+    this->Interpreter->CopyPacket(nextData, nextDataLength);
   }
 
   this->Interpreter->SplitFrame(true);
