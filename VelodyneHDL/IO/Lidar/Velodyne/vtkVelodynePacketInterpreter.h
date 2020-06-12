@@ -94,7 +94,7 @@ protected:
   // timestamp - the timestamp of the packet
   // geotransform - georeferencing transform
   void ProcessFiring(const HDLFiringData* firingData,
-    int firingBlockLaserOffset, int firingBlock, int azimuthDiff, double timestamp,
+    int firingBlockLaserOffset, int firingBlock, int azimuthDiff, double timestamp, double nextTimestamp,
     unsigned int rawtime, bool isThisFiringDualReturnData, bool isDualReturnPacket, const std::vector<uint16_t>& confidenceValues);
 
   void PushFiringData(unsigned char laserId, unsigned char rawLaserId,

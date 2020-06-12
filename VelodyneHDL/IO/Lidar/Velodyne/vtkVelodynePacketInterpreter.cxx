@@ -754,6 +754,7 @@ void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * nextData,
 
   const unsigned int rawtime = currentPacket.gpsTimestamp;
   const double timestamp = this->ComputeTimestamp(currentPacket.gpsTimestamp);
+  const double nextTimestamp = this->ComputeTimestamp(nextDataPacket->gpsTimestamp);
 
   // Update the rpm computation (by packets)
   this->RpmCalculator_->AddData(&currentPacket, rawtime);
@@ -879,7 +880,7 @@ void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * nextData,
     // Skip this firing every PointSkip
     if (this->FiringsSkip == 0 || (firingBlock - firingBlockDPCAdjustment) % (this->FiringsSkip + 1) == 0)
     {
-      this->ProcessFiring(firingData, multiBlockLaserIdOffset, firingBlock - firingBlockDPCAdjustment, azimuthDiff, timestamp,
+      this->ProcessFiring(firingData, multiBlockLaserIdOffset, firingBlock - firingBlockDPCAdjustment, azimuthDiff, timestamp, nextTimestamp,
         rawtime, currentPacket.isDualReturnFiringBlock(firingBlock), currentPacket.isDualModeReturn() || currentPacket.isDPCReturnVLS128(), confidenceValues);
     }
   }
@@ -900,7 +901,7 @@ bool vtkVelodynePacketInterpreter::IsLidarPacket(unsigned char const * data, uns
 }
 
 //-----------------------------------------------------------------------------
-void vtkVelodynePacketInterpreter::ProcessFiring(const HDLFiringData *firingData, int firingBlockLaserOffset, int firingBlock, int azimuthDiff, double timestamp, unsigned int rawtime, bool isThisFiringDualReturnData, bool isDualReturnPacket, const std::vector<uint16_t>& confidenceValues)
+void vtkVelodynePacketInterpreter::ProcessFiring(const HDLFiringData *firingData, int firingBlockLaserOffset, int firingBlock, int azimuthDiff, double timestamp, double nextTimestamp, unsigned int rawtime, bool isThisFiringDualReturnData, bool isDualReturnPacket, const std::vector<uint16_t>& confidenceValues)
 {
   // First return block of a dual return packet: init last point of laser
   if (!isThisFiringDualReturnData &&
@@ -940,6 +941,8 @@ void vtkVelodynePacketInterpreter::ProcessFiring(const HDLFiringData *firingData
     // Interpolate azimuths and timestamps per laser within firing blocks
     double timestampadjustment = 0;
     int azimuthadjustment = 0;
+    double unroundedAzimuthAdjustment = 0.0;
+
     if (this->UseIntraFiringAdjustment)
     {
       double blockdsr0 = 0, nextblockdsr0 = 1;
@@ -948,9 +951,20 @@ void vtkVelodynePacketInterpreter::ProcessFiring(const HDLFiringData *firingData
         case 128:
         {
           timestampadjustment = VLS128AdjustTimeStamp(firingBlock, dsr, isDualReturnPacket);
-          nextblockdsr0 = VLS128AdjustTimeStamp(
-            firingBlock + (isDualReturnPacket ? 8 : 4), 0, isDualReturnPacket);
-          blockdsr0 = VLS128AdjustTimeStamp(firingBlock, 0, isDualReturnPacket);
+
+          // Index of column that starts the next firing sequence in single mode
+          // Columns 0-3 map to index 4, columns 4-7 map to index 8, columns 8-11 map to index 12
+          int nextSeqBlockIndex = 4 * ((firingBlock + 4) / 4);
+
+          // For dual/dpc mode and the last firing block of single mode, use timestamp of next packet
+          // Otherwise, adjust using the nextBlockIndex of this packet
+          nextblockdsr0 = isDualReturnPacket || nextSeqBlockIndex >= 12 ? nextTimestamp - timestamp - 8.7 : 
+            VLS128AdjustTimeStamp(nextSeqBlockIndex, 0, isDualReturnPacket);
+
+          // Index of the column that starts this firing sequence in single mode
+          int currentSeqBlockIndex = 4 * (firingBlock / 4);
+
+          blockdsr0 = VLS128AdjustTimeStamp(isDualReturnPacket ? 0 : currentSeqBlockIndex, 0, isDualReturnPacket);
           break;
         }
         case 64:
@@ -997,8 +1011,16 @@ void vtkVelodynePacketInterpreter::ProcessFiring(const HDLFiringData *firingData
       }
       azimuthadjustment = vtkMath::Round(
         azimuthDiff * ((timestampadjustment - blockdsr0) / (nextblockdsr0 - blockdsr0)));
+      //unroundedAzimuthAdjustment = azimuthDiff * ((timestampadjustment - blockdsr0) / (nextblockdsr0 - blockdsr0));
+      unroundedAzimuthAdjustment = azimuthDiff * ((timestampadjustment - blockdsr0) / (nextblockdsr0 - blockdsr0));
+
+      //unroundedAzimuthAdjustment = azimuthDiff * ((timestampadjustment - blockdsr0) / (nextTimestamp - timestamp));
       timestampadjustment = vtkMath::Round(timestampadjustment);
     }
+
+    std::cout << "firingblock: " << firingBlock << " dsr: " << dsr << " azimuth: " << azimuth << " adjustment: " << unroundedAzimuthAdjustment << std::endl;
+    //std::cout << "timestamp: " << timestamp << " nextTimestamp: " << nextTimestamp << " diff: " << nextTimestamp - timestamp << std::endl;
+
     if ((!this->IgnoreZeroDistances || firingData->laserReturns[dsr].distance != 0.0) &&
       this->LaserSelection[laserId])
     {
