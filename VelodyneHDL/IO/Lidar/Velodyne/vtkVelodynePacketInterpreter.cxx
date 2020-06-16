@@ -214,7 +214,11 @@ double VLS128AdjustTimeStamp(int firingblock, int dsr, const bool isDualReturnMo
 {
   if (!isDualReturnMode)
   {
-    return 13.0 * (firingblock) + (dsr / 4) * 1.4;
+    // 4 firing groups per firing block and 8 lasers per firing group
+    int groupnumber = 4 * firingblock + dsr / 8;
+
+    // Initial offset + time per firing group + RP0/RP1 once per 8 firing groups + average time of RP2 every 16 firing groups
+    return -8.7 + (groupnumber * 2.665) + (5.33 * (groupnumber / 8)) + ((3.882 / 2) * (groupnumber / 16));
   }
   else
   {
@@ -226,7 +230,6 @@ double VLS128AdjustTimeStamp(int firingblock, int dsr, const bool isDualReturnMo
     }
   }
 }
-
 
 //-----------------------------------------------------------------------------
 class FramingState
@@ -954,25 +957,45 @@ void vtkVelodynePacketInterpreter::ProcessFiring(const HDLFiringData *firingData
 
           // Index of column that starts the next firing sequence in single mode
           // Columns 0-3 map to index 4, columns 4-7 map to index 8, columns 8-11 map to index 12
-          int nextSeqBlockIndex = 4 * ((firingBlock + 4) / 4);
+          int singleNextSeqBlockIndex = 4 * ((firingBlock + 4) / 4);
 
           // For dual/dpc mode and the last firing block of single mode, use timestamp of next packet
-          // Otherwise, adjust using the nextBlockIndex of this packet
-          nextblockdsr0 = isDualReturnPacket || nextSeqBlockIndex >= 12 ? nextTimestamp - timestamp - 8.7 : 
-            VLS128AdjustTimeStamp(nextSeqBlockIndex, 0, isDualReturnPacket);
+          // Otherwise, adjust using the singleNextSeqBlockIndex of this packet
+          bool shouldUseTimestamp = isDualReturnPacket || singleNextSeqBlockIndex >= 12;
+          
+          // Because time offsets are relative to packet timestamp (in firing group 3),
+          // but VLS128AdjustTimeStamp finds time offset relative to start of packet (firing group 0), 
+          // we need to subtract 8.7 microseconds from the timestamp difference to get an adjusted offset.
+          nextblockdsr0 = shouldUseTimestamp ? (nextTimestamp - timestamp + VLS128AdjustTimeStamp(0, 0, false)) :
+            VLS128AdjustTimeStamp(singleNextSeqBlockIndex, 0, isDualReturnPacket);
 
           // Index of the column that starts this firing sequence in single mode
           int currentSeqBlockIndex = 4 * (firingBlock / 4);
 
-          blockdsr0 = VLS128AdjustTimeStamp(isDualReturnPacket ? 0 : currentSeqBlockIndex, 0, isDualReturnPacket);
+          // Index to be used to compute blockdsr0
+          // Always 0 for dual mode since we only have one azimuth per packet
+          int dsr0BlockIndex = isDualReturnPacket ? 0 : currentSeqBlockIndex;
+
+          blockdsr0 = VLS128AdjustTimeStamp(dsr0BlockIndex, 0, isDualReturnPacket);
           break;
         }
         case 64:
         {
           timestampadjustment = -HDL64EAdjustTimeStamp(firingBlock, dsr, isDualReturnPacket);
-          nextblockdsr0 = -HDL64EAdjustTimeStamp(
-            firingBlock + (isDualReturnPacket ? 4 : 2), 0, isDualReturnPacket);
-          blockdsr0 = -HDL64EAdjustTimeStamp(firingBlock, 0, isDualReturnPacket);
+
+          // Index of column that starts the next firing sequence in dual mode
+          // Columns 0-3 map to index 4, columns 4-7 map to index 8, columns 8-11 map to index 12
+          int dualNextSeqBlockIndex = 4 * ((firingBlock + 4) / 4);
+
+          bool shouldUseTimestamp = dualNextSeqBlockIndex >= 12;
+
+          nextblockdsr0 = shouldUseTimestamp ? (nextTimestamp - timestamp - HDL64EAdjustTimeStamp(0, 0, true)) : 
+            -HDL64EAdjustTimeStamp(dualNextSeqBlockIndex, 0, isDualReturnPacket);
+
+          // Index of the column that starts this firing sequence in dual mode
+          int currentSeqBlockIndex = 4 * (firingBlock / 4);
+
+          blockdsr0 = -HDL64EAdjustTimeStamp(currentSeqBlockIndex, 0, isDualReturnPacket);
           break;
         }
         case 32:
@@ -1011,14 +1034,14 @@ void vtkVelodynePacketInterpreter::ProcessFiring(const HDLFiringData *firingData
       }
       azimuthadjustment = vtkMath::Round(
         azimuthDiff * ((timestampadjustment - blockdsr0) / (nextblockdsr0 - blockdsr0)));
-      //unroundedAzimuthAdjustment = azimuthDiff * ((timestampadjustment - blockdsr0) / (nextblockdsr0 - blockdsr0));
       unroundedAzimuthAdjustment = azimuthDiff * ((timestampadjustment - blockdsr0) / (nextblockdsr0 - blockdsr0));
+      //unroundedAzimuthAdjustment = (timestampadjustment - blockdsr0) / (nextblockdsr0 - blockdsr0);
+      //unroundedAzimuthAdjustment = azimuthDiff;
 
-      //unroundedAzimuthAdjustment = azimuthDiff * ((timestampadjustment - blockdsr0) / (nextTimestamp - timestamp));
       timestampadjustment = vtkMath::Round(timestampadjustment);
     }
 
-    std::cout << "firingblock: " << firingBlock << " dsr: " << dsr << " azimuth: " << azimuth << " adjustment: " << unroundedAzimuthAdjustment << std::endl;
+    std::cout << "firingblock: " << firingBlock << " dsr: " << dsr << " azimuth: " << azimuth << " adj: " << unroundedAzimuthAdjustment << std::endl;
     //std::cout << "timestamp: " << timestamp << " nextTimestamp: " << nextTimestamp << " diff: " << nextTimestamp - timestamp << std::endl;
 
     if ((!this->IgnoreZeroDistances || firingData->laserReturns[dsr].distance != 0.0) &&
