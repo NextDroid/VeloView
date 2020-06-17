@@ -56,16 +56,22 @@ public:
   virtual vtkSmartPointer<vtkTable> GetCalibrationTable() { return this->CalibrationData.Get(); }
 
   /**
+   * @brief CopyPacket copies a packet. To interpret a packet, an interpreter may need to know its previous packet
+   * @param data raw data packet
+   */
+  virtual void CopyPacket(unsigned char const * data, unsigned int dataLength) = 0;
+
+  /**
    * @brief ProcessPacket process the data packet to create incrementaly the frame.
    * Each time a packet is processed by the function, the points which are encoded
    * in the packet are decoded using the calibration information and add to the frame. A warning
    * should be raise in case the calibration information does not match the data
    * (ex: factory field, number of laser, ...)
-   * @param data raw data packet
-   * @param bytesReceived size of the data packet
+   * The data packet is now a member variable and is no longer passed to this function.
    * @param startPosition offset in the data packet used when a frame start in the middle of a packet
+   * @param nextData raw next data packet
    */
-  virtual void ProcessPacket(unsigned char const * data, unsigned int dataLength, int startPosition = 0) = 0;
+  virtual void ProcessPacket(unsigned char const * nextData, int startPosition = 0) = 0;
 
   /**
    * @brief SplitFrame take the current frame under construction and place it in another buffer
@@ -183,6 +189,9 @@ public:
 
   vtkSetVector6Macro(CropRegion, double)
 
+  vtkSetMacro(InitProcessedPacket, bool)
+  vtkGetMacro(InitProcessedPacket, bool)
+
   vtkMTimeType GetMTime() override;
 
 protected:
@@ -253,6 +262,8 @@ protected:
   //! - vtkLidarProvider::CropModeEnum::Spherical -> Note implemented yet
   //! all distance are in cm and all angle are in degree
   double CropRegion[6] = {0,0,0,0,0,0};
+
+  bool InitProcessedPacket = false;
 
   vtkLidarPacketInterpreter() = default;
   virtual ~vtkLidarPacketInterpreter() = default;

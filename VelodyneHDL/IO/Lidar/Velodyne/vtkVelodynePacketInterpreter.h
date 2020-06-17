@@ -34,7 +34,9 @@ public:
 
   void LoadCalibration(const std::string& filename) override;
 
-  void ProcessPacket(unsigned char const * data, unsigned int dataLength, int startPosition = 0) override;
+  void CopyPacket(unsigned char const * data, unsigned int dataLength) override;
+
+  void ProcessPacket(unsigned char const * nextData, int startPosition = 0) override;
 
   bool SplitFrame(bool force = false) override;
 
@@ -92,7 +94,7 @@ protected:
   // timestamp - the timestamp of the packet
   // geotransform - georeferencing transform
   void ProcessFiring(const HDLFiringData* firingData,
-    int firingBlockLaserOffset, int firingBlock, int azimuthDiff, double timestamp,
+    int firingBlockLaserOffset, int firingBlock, int azimuthDiff, double timestamp, double nextTimestamp,
     unsigned int rawtime, bool isThisFiringDualReturnData, bool isDualReturnPacket, const std::vector<uint16_t>& confidenceValues);
 
   void PushFiringData(unsigned char laserId, unsigned char rawLaserId,
@@ -194,6 +196,8 @@ protected:
   unsigned int DualReturnFilter;
 
   bool ShouldValidateCalibrationFromStream = true;
+
+  HDLDataPacket currentPacket;
 
   vtkVelodynePacketInterpreter();
   ~vtkVelodynePacketInterpreter();

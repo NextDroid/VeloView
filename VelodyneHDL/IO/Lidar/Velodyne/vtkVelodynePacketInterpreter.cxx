@@ -214,14 +214,25 @@ double VLS128AdjustTimeStamp(int firingblock, int dsr, const bool isDualReturnMo
 {
   if (!isDualReturnMode)
   {
-    return 13.0 * (firingblock) + (dsr / 4) * 1.4;
+    // 4 firing groups per firing block and 8 lasers per firing group
+    int groupnumber = 4 * firingblock + dsr / 8;
+
+    // Initial offset + time per firing group + RP0/RP1 once per 8 firing groups + average time of RP2 every 16 firing groups
+    return -8.7 + (groupnumber * 2.665) + (5.33 * (groupnumber / 8)) + ((3.882 / 2) * (groupnumber / 16));
   }
   else
   {
-    return 13.0 * (firingblock / 2) + (dsr / 4) * 1.4;
+    // In dual and DPC, pairs of firingblocks share the same adjustments
+    int groupnumber = 4 * (firingblock / 2) + dsr / 8;
+
+    // We don't interpolate outside of a packet for dual/DPC, so we only need to get adjustment within a packet
+    if (groupnumber <= 7) {
+      return -8.7 + (groupnumber * 2.665);
+    } else {
+      return -8.7 + (groupnumber * 2.665) + 5.33;
+    }
   }
 }
-
 
 //-----------------------------------------------------------------------------
 class FramingState
@@ -716,37 +727,43 @@ void vtkVelodynePacketInterpreter::LoadCalibration(const std::string& filename)
 }
 
 //-----------------------------------------------------------------------------
-void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, unsigned int dataLength, int startPosition)
+void vtkVelodynePacketInterpreter::CopyPacket(unsigned char const * data, unsigned int dataLength)
 {
-  if (!this->IsLidarPacket(data, dataLength))
-  {
-    return;
-  }
+  std::memcpy(&currentPacket, reinterpret_cast<const HDLDataPacket*>(data), dataLength);
+}
 
-  const HDLDataPacket* dataPacket = reinterpret_cast<const HDLDataPacket*>(data);
+//-----------------------------------------------------------------------------
+void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * nextData, int startPosition)
+{
+  const HDLDataPacket* nextDataPacket = reinterpret_cast<const HDLDataPacket*>(nextData);
 
-  this->IsHDL64Data |= dataPacket->isHDL64();
+  this->IsHDL64Data |= currentPacket.isHDL64();
 
   // Accumulate HDL64 Status byte data
   if (IsHDL64Data && this->IsCorrectionFromLiveStream &&
     !this->IsCalibrated)
   {
-    this->rollingCalibrationData->appendData(dataPacket->gpsTimestamp, dataPacket->factoryField1, dataPacket->factoryField2);
+    this->rollingCalibrationData->appendData(currentPacket.gpsTimestamp, currentPacket.factoryField1, currentPacket.factoryField2);
     this->HDL64LoadCorrectionsFromStreamData();
     return;
   }
 
+  // Timestamp test
+  /*std::cout << "Current packet timestamp: " << currentPacket.gpsTimestamp << std::endl;
+  std::cout << "Next packet timestamp: " << nextDataPacket->gpsTimestamp << std::endl;*/
+
   if (this->ShouldCheckSensor)
   {
-    this->CheckReportedSensorAndCalibrationFileConsistent(dataPacket);
+    this->CheckReportedSensorAndCalibrationFileConsistent(&currentPacket);
     ShouldCheckSensor = false;
   }
 
-  const unsigned int rawtime = dataPacket->gpsTimestamp;
-  const double timestamp = this->ComputeTimestamp(dataPacket->gpsTimestamp);
+  const unsigned int rawtime = currentPacket.gpsTimestamp;
+  const double timestamp = this->ComputeTimestamp(currentPacket.gpsTimestamp);
+  const double nextTimestamp = this->ComputeTimestamp(nextDataPacket->gpsTimestamp);
 
   // Update the rpm computation (by packets)
-  this->RpmCalculator_->AddData(dataPacket, rawtime);
+  this->RpmCalculator_->AddData(&currentPacket, rawtime);
 
   // Update the transforms here and then call internal
   // transform
@@ -754,40 +771,38 @@ void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, uns
 
   int firingBlock = startPosition;
 
-  bool isVLS128 = dataPacket->isVLS128();
+  bool isVLS128 = currentPacket.isVLS128();
   // Compute the list of total azimuth advanced during one full firing block
   std::vector<int> diffs(HDL_FIRING_PER_PKT - 1);
-  for (int i = 0; i < HDL_FIRING_PER_PKT - 1; ++i)
+  int nonZeroDiff = 0; int localDiff = 0;
+  for (int i = 0; i < HDL_FIRING_PER_PKT; ++i)
   {
-    int localDiff = (36000 + 18000 + dataPacket->firingData[i + 1].rotationalPosition -
-                      dataPacket->firingData[i].rotationalPosition) %
+    if (i == HDL_FIRING_PER_PKT-1) {
+      localDiff = (36000 + 18000 + nextDataPacket->firingData[0].rotationalPosition -
+                      currentPacket.firingData[i].rotationalPosition) %
       36000 - 18000;
-    diffs[i] = localDiff;
-  }
+    } else {
+      localDiff = (36000 + 18000 + currentPacket.firingData[i + 1].rotationalPosition -
+                      currentPacket.firingData[i].rotationalPosition) %
+      36000 - 18000;
+    }
 
+    if (localDiff != 0) {
+      diffs[nonZeroDiff] = localDiff;
+      nonZeroDiff++;
+    }
+  }
 
   if (!IsHDL64Data)
   { // with HDL64, it should be filled by LoadCorrectionsFromStreamData
-    this->ReportedSensor = dataPacket->getSensorType();
-    this->ReportedSensorReturnMode = dataPacket->getDualReturnSensorMode();
+    this->ReportedSensor = currentPacket.getSensorType();
+    this->ReportedSensorReturnMode = currentPacket.getDualReturnSensorMode();
   }
 
-  std::sort(diffs.begin(), diffs.end());
-  // Assume the median of the packet's rotationalPosition differences
-  int azimuthDiff = diffs[HDL_FIRING_PER_PKT / 2];
-  if (this->IsHDL64Data)
-  {
-    azimuthDiff = diffs[HDL_FIRING_PER_PKT - 2];
-  }
-  else if (isVLS128)
-  {
-    azimuthDiff = diffs[HDL_FIRING_PER_PKT - 1];
-  }
-
-  // assert(azimuthDiff > 0);
+  int firingBlockGroup = HDL_FIRING_PER_PKT / nonZeroDiff;
 
   // Update HasDualReturn in dual and dual plus confidence modes
-  if ((dataPacket->isDualModeReturn() || dataPacket->isDPCReturnVLS128()) && !this->HasDualReturn)
+  if ((currentPacket.isDualModeReturn() || currentPacket.isDPCReturnVLS128()) && !this->HasDualReturn)
   {
     this->HasDualReturn = true;
   }
@@ -803,7 +818,7 @@ void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, uns
 
   for (; firingBlock < HDL_FIRING_PER_PKT; ++firingBlock)
   {
-    const HDLFiringData* firingData = &(dataPacket->firingData[firingBlock]);
+    const HDLFiringData* firingData = &(currentPacket.firingData[firingBlock]);
     // clang-format off
     int multiBlockLaserIdOffset =
         (firingData->blockIdentifier == BLOCK_0_TO_31)  ?  0 :(
@@ -820,7 +835,7 @@ void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, uns
     }
 
     // Skip confidence blocks of VLS-128 DPC mode
-    if (isVLS128 && dataPacket->isDPCReturnVLS128() && dataPacket->isConfidenceBlockOfDPCPacket128(firingBlock))
+    if (isVLS128 && currentPacket.isDPCReturnVLS128() && currentPacket.isConfidenceBlockOfDPCPacket128(firingBlock))
     {
       // We will have to adjust for up to 3 confidence blocks per packet
       if (firingBlockDPCAdjustment > 3) {
@@ -830,22 +845,22 @@ void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, uns
       continue;
     }
 
-    if (isVLS128 && dataPacket->isDPCReturnVLS128() && !dataPacket->isConfidenceBlockOfDPCPacket128(firingBlock))
+    if (isVLS128 && currentPacket.isDPCReturnVLS128() && !currentPacket.isConfidenceBlockOfDPCPacket128(firingBlock))
     {
       // The confidence block is two blocks away from the first firing block, and one block away from the second
-      int offset = dataPacket->isFirstBlockOfDPCPacket128(firingBlock) ? 2 : 1;
+      int offset = currentPacket.isFirstBlockOfDPCPacket128(firingBlock) ? 2 : 1;
 
       for (int laserID = 0; laserID < HDL_LASER_PER_FIRING; ++laserID)
       {
         // First block corresponds to the latter half (12 bits) of confidence data (see VLS-128 manual pg. 59)
-        if (dataPacket->isFirstBlockOfDPCPacket128(firingBlock)) {
+        if (currentPacket.isFirstBlockOfDPCPacket128(firingBlock)) {
           // Select last 4 bits of distance, left shift by 12 bits, then | with 8 bits of intensity left shifted by 4 bits
-          confidenceValues.at(laserID) = (dataPacket->firingData[firingBlock + offset].laserReturns[laserID].distance & 0x000f << 12) |
-              dataPacket->firingData[firingBlock + offset].laserReturns[laserID].intensity << 4;
+          confidenceValues.at(laserID) = (currentPacket.firingData[firingBlock + offset].laserReturns[laserID].distance & 0x000f << 12) |
+              currentPacket.firingData[firingBlock + offset].laserReturns[laserID].intensity << 4;
         }
-        else if (dataPacket->isSecondBlockOfDPCPacket128(firingBlock)) {
+        else if (currentPacket.isSecondBlockOfDPCPacket128(firingBlock)) {
           // Second firing block confidence data is the first 12 bits of distance
-          confidenceValues.at(laserID) = dataPacket->firingData[firingBlock + offset].laserReturns[laserID].distance & 0xfff0;
+          confidenceValues.at(laserID) = currentPacket.firingData[firingBlock + offset].laserReturns[laserID].distance & 0xfff0;
         }
         else {
           std::cout << "Warning: confidence not being set" << std::endl;
@@ -865,16 +880,14 @@ void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * data, uns
       this->LastTimestamp = std::numeric_limits<unsigned int>::max();
     }
 
-    if (isVLS128)
-    {
-      azimuthDiff = dataPacket->getRotationalDiffForVLS128(firingBlock - firingBlockDPCAdjustment);
-    }
+    int groupIndex = firingBlock/firingBlockGroup;
+    int azimuthDiff = diffs[groupIndex];
 
     // Skip this firing every PointSkip
     if (this->FiringsSkip == 0 || (firingBlock - firingBlockDPCAdjustment) % (this->FiringsSkip + 1) == 0)
     {
-      this->ProcessFiring(firingData, multiBlockLaserIdOffset, firingBlock - firingBlockDPCAdjustment, azimuthDiff, timestamp,
-        rawtime, dataPacket->isDualReturnFiringBlock(firingBlock), dataPacket->isDualModeReturn() || dataPacket->isDPCReturnVLS128(), confidenceValues);
+      this->ProcessFiring(firingData, multiBlockLaserIdOffset, firingBlock - firingBlockDPCAdjustment, azimuthDiff, timestamp, nextTimestamp,
+        rawtime, currentPacket.isDualReturnFiringBlock(firingBlock), currentPacket.isDualModeReturn() || currentPacket.isDPCReturnVLS128(), confidenceValues);
     }
   }
 }
@@ -894,7 +907,7 @@ bool vtkVelodynePacketInterpreter::IsLidarPacket(unsigned char const * data, uns
 }
 
 //-----------------------------------------------------------------------------
-void vtkVelodynePacketInterpreter::ProcessFiring(const HDLFiringData *firingData, int firingBlockLaserOffset, int firingBlock, int azimuthDiff, double timestamp, unsigned int rawtime, bool isThisFiringDualReturnData, bool isDualReturnPacket, const std::vector<uint16_t>& confidenceValues)
+void vtkVelodynePacketInterpreter::ProcessFiring(const HDLFiringData *firingData, int firingBlockLaserOffset, int firingBlock, int azimuthDiff, double timestamp, double nextTimestamp, unsigned int rawtime, bool isThisFiringDualReturnData, bool isDualReturnPacket, const std::vector<uint16_t>& confidenceValues)
 {
   // First return block of a dual return packet: init last point of laser
   if (!isThisFiringDualReturnData &&
@@ -934,6 +947,7 @@ void vtkVelodynePacketInterpreter::ProcessFiring(const HDLFiringData *firingData
     // Interpolate azimuths and timestamps per laser within firing blocks
     double timestampadjustment = 0;
     int azimuthadjustment = 0;
+
     if (this->UseIntraFiringAdjustment)
     {
       double blockdsr0 = 0, nextblockdsr0 = 1;
@@ -942,17 +956,57 @@ void vtkVelodynePacketInterpreter::ProcessFiring(const HDLFiringData *firingData
         case 128:
         {
           timestampadjustment = VLS128AdjustTimeStamp(firingBlock, dsr, isDualReturnPacket);
-          nextblockdsr0 = VLS128AdjustTimeStamp(
-            firingBlock + (isDualReturnPacket ? 8 : 4), 0, isDualReturnPacket);
-          blockdsr0 = VLS128AdjustTimeStamp(firingBlock, 0, isDualReturnPacket);
+
+          // One firing sequence per packet in dual mode; three per packet in single mode
+          int seqLength = isDualReturnPacket ? HDL_FIRING_PER_PKT : HDL_FIRING_PER_PKT / 3;
+
+          // Index of column that starts the next firing sequence in single mode
+          // Columns 0-3 map to index 4, columns 4-7 map to index 8, columns 8-11 map to index 12
+          int singleNextSeqBlockIndex = currentPacket.getSeqBlockIndex(firingBlock + seqLength, seqLength);
+
+          // For dual/dpc mode and the last firing block of single mode, use timestamp of next packet
+          // Otherwise, adjust using the singleNextSeqBlockIndex of this packet
+          bool shouldUseTimestamp = isDualReturnPacket || singleNextSeqBlockIndex >= HDL_FIRING_PER_PKT;
+          
+          // Because time offsets are relative to packet timestamp (in firing group 3),
+          // but VLS128AdjustTimeStamp finds time offset relative to start of packet (firing group 0), 
+          // we need to subtract 8.7 microseconds from the timestamp difference to get an adjusted offset.
+          nextblockdsr0 = shouldUseTimestamp ? (nextTimestamp - timestamp + VLS128AdjustTimeStamp(0, 0, isDualReturnPacket)) :
+            VLS128AdjustTimeStamp(singleNextSeqBlockIndex, 0, isDualReturnPacket);
+
+          // Index of the column that starts this firing sequence in single mode
+          int currentSeqBlockIndex = currentPacket.getSeqBlockIndex(firingBlock, seqLength);
+
+          // Index to be used to compute blockdsr0
+          // Always 0 for dual mode since we only have one azimuth per packet
+          int dsr0BlockIndex = isDualReturnPacket ? 0 : currentSeqBlockIndex;
+
+          blockdsr0 = VLS128AdjustTimeStamp(dsr0BlockIndex, 0, isDualReturnPacket);
           break;
         }
         case 64:
         {
           timestampadjustment = -HDL64EAdjustTimeStamp(firingBlock, dsr, isDualReturnPacket);
-          nextblockdsr0 = -HDL64EAdjustTimeStamp(
-            firingBlock + (isDualReturnPacket ? 4 : 2), 0, isDualReturnPacket);
-          blockdsr0 = -HDL64EAdjustTimeStamp(firingBlock, 0, isDualReturnPacket);
+
+          // In single mode, firing sequences are 2 columns apart instead of 4
+          // Three sequences per packet in dual mode; six per packet in single mode
+          int seqLength = isDualReturnPacket ? HDL_FIRING_PER_PKT / 3 : HDL_FIRING_PER_PKT / 6;
+
+          // Index of column that starts the next firing sequence
+          // Columns 0-3 map to index 4, columns 4-7 map to index 8, columns 8-11 map to index 12
+          int nextSeqBlockIndex = currentPacket.getSeqBlockIndex(firingBlock + seqLength, seqLength);
+
+          // Use next packet's timestamp for last firing sequence of this packet
+          bool shouldUseTimestamp = nextSeqBlockIndex >= HDL_FIRING_PER_PKT;
+
+          // Shift the timestamp offset to the adjutsed time frame
+          nextblockdsr0 = shouldUseTimestamp ? (nextTimestamp - timestamp - HDL64EAdjustTimeStamp(0, 0, isDualReturnPacket)) : 
+            -HDL64EAdjustTimeStamp(nextSeqBlockIndex, 0, isDualReturnPacket);
+
+          // Index of the column that starts this firing sequence
+          int currentSeqBlockIndex = currentPacket.getSeqBlockIndex(firingBlock, seqLength);
+
+          blockdsr0 = -HDL64EAdjustTimeStamp(currentSeqBlockIndex, 0, isDualReturnPacket);
           break;
         }
         case 32:
@@ -993,6 +1047,7 @@ void vtkVelodynePacketInterpreter::ProcessFiring(const HDLFiringData *firingData
         azimuthDiff * ((timestampadjustment - blockdsr0) / (nextblockdsr0 - blockdsr0)));
       timestampadjustment = vtkMath::Round(timestampadjustment);
     }
+
     if ((!this->IgnoreZeroDistances || firingData->laserReturns[dsr].distance != 0.0) &&
       this->LaserSelection[laserId])
     {
