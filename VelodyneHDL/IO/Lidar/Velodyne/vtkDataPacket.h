@@ -295,7 +295,7 @@ struct HDLDataPacket
   }
 
   // Finds the block index for the start of the current firing sequence
-  inline static int getSeqBlockIndex(const int firingBlock, const int seqLength, const bool isDualReturnPacket)
+  inline static int getSeqBlockIndex(const int firingBlock, const int seqLength)
   {
     return seqLength * (firingBlock / seqLength);
   }
