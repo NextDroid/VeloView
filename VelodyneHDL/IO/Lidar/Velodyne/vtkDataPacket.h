@@ -293,6 +293,12 @@ struct HDLDataPacket
         36000);
     }
   }
+
+  // Finds the block index for the start of the current firing sequence
+  inline static int getSeqBlockIndex(const int firingBlock, const int seqLength, const bool isDualReturnPacket)
+  {
+    return seqLength * (firingBlock / seqLength);
+  }
 };
 
 struct HDLLaserCorrection // Internal representation of per-laser correction

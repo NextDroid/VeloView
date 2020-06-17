@@ -957,13 +957,16 @@ void vtkVelodynePacketInterpreter::ProcessFiring(const HDLFiringData *firingData
         {
           timestampadjustment = VLS128AdjustTimeStamp(firingBlock, dsr, isDualReturnPacket);
 
+          // One firing sequence per packet in dual mode; three per packet in single mode
+          int seqLength = isDualReturnPacket ? HDL_FIRING_PER_PKT : HDL_FIRING_PER_PKT / 3;
+
           // Index of column that starts the next firing sequence in single mode
           // Columns 0-3 map to index 4, columns 4-7 map to index 8, columns 8-11 map to index 12
-          int singleNextSeqBlockIndex = 4 * ((firingBlock + 4) / 4);
+          int singleNextSeqBlockIndex = currentPacket.getSeqBlockIndex(firingBlock + seqLength, seqLength, isDualReturnPacket);
 
           // For dual/dpc mode and the last firing block of single mode, use timestamp of next packet
           // Otherwise, adjust using the singleNextSeqBlockIndex of this packet
-          bool shouldUseTimestamp = isDualReturnPacket || singleNextSeqBlockIndex >= 12;
+          bool shouldUseTimestamp = isDualReturnPacket || singleNextSeqBlockIndex >= HDL_FIRING_PER_PKT;
           
           // Because time offsets are relative to packet timestamp (in firing group 3),
           // but VLS128AdjustTimeStamp finds time offset relative to start of packet (firing group 0), 
@@ -972,7 +975,7 @@ void vtkVelodynePacketInterpreter::ProcessFiring(const HDLFiringData *firingData
             VLS128AdjustTimeStamp(singleNextSeqBlockIndex, 0, isDualReturnPacket);
 
           // Index of the column that starts this firing sequence in single mode
-          int currentSeqBlockIndex = 4 * (firingBlock / 4);
+          int currentSeqBlockIndex = currentPacket.getSeqBlockIndex(firingBlock, seqLength, isDualReturnPacket);
 
           // Index to be used to compute blockdsr0
           // Always 0 for dual mode since we only have one azimuth per packet
@@ -985,20 +988,23 @@ void vtkVelodynePacketInterpreter::ProcessFiring(const HDLFiringData *firingData
         {
           timestampadjustment = -HDL64EAdjustTimeStamp(firingBlock, dsr, isDualReturnPacket);
 
+          // In single mode, firing sequences are 2 columns apart instead of 4
+          // Three sequences per packet in dual mode; six per packet in single mode
+          int seqLength = isDualReturnPacket ? HDL_FIRING_PER_PKT / 3 : HDL_FIRING_PER_PKT / 6;
+
           // Index of column that starts the next firing sequence
           // Columns 0-3 map to index 4, columns 4-7 map to index 8, columns 8-11 map to index 12
-          // In single mode, firing sequences are 2 columns apart instead of 4
-          int nextSeqBlockIndex = isDualReturnPacket ? 4 * ((firingBlock + 4) / 4) : 2 * ((firingBlock + 2) / 2);
+          int nextSeqBlockIndex = currentPacket.getSeqBlockIndex(firingBlock + seqLength, seqLength, isDualReturnPacket);
 
           // Use next packet's timestamp for last firing sequence of this packet
-          bool shouldUseTimestamp = nextSeqBlockIndex >= 12;
+          bool shouldUseTimestamp = nextSeqBlockIndex >= HDL_FIRING_PER_PKT;
 
           // Shift the timestamp offset to the adjutsed time frame
           nextblockdsr0 = shouldUseTimestamp ? (nextTimestamp - timestamp - HDL64EAdjustTimeStamp(0, 0, isDualReturnPacket)) : 
             -HDL64EAdjustTimeStamp(nextSeqBlockIndex, 0, isDualReturnPacket);
 
           // Index of the column that starts this firing sequence
-          int currentSeqBlockIndex = isDualReturnPacket ? 4 * (firingBlock / 4) : 2 * (firingBlock / 2);
+          int currentSeqBlockIndex = currentPacket.getSeqBlockIndex(firingBlock, seqLength, isDualReturnPacket);
 
           blockdsr0 = -HDL64EAdjustTimeStamp(currentSeqBlockIndex, 0, isDualReturnPacket);
           break;
