@@ -773,7 +773,7 @@ void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * nextData,
 
   bool isVLS128 = currentPacket.isVLS128();
   // Compute the list of total azimuth advanced during one full firing block
-  std::vector<int> diffs(HDL_FIRING_PER_PKT - 1);
+  std::vector<int> diffs(HDL_FIRING_PER_PKT - 1, 0);
   int nonZeroDiff = 0; int localDiff = 0;
   for (int i = 0; i < HDL_FIRING_PER_PKT; ++i)
   {
@@ -799,10 +799,7 @@ void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * nextData,
     this->ReportedSensorReturnMode = currentPacket.getDualReturnSensorMode();
   }
 
-  int firingBlockGroup = 1;
-  if (nonZeroDiff > 0) {
-    firingBlockGroup = HDL_FIRING_PER_PKT / nonZeroDiff;
-  }
+  int firingBlockGroup = (nonZeroDiff > 0) ? HDL_FIRING_PER_PKT / nonZeroDiff : 1;
 
   // Update HasDualReturn in dual and dual plus confidence modes
   if ((currentPacket.isDualModeReturn() || currentPacket.isDPCReturnVLS128()) && !this->HasDualReturn)
