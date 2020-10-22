@@ -799,7 +799,10 @@ void vtkVelodynePacketInterpreter::ProcessPacket(unsigned char const * nextData,
     this->ReportedSensorReturnMode = currentPacket.getDualReturnSensorMode();
   }
 
-  int firingBlockGroup = HDL_FIRING_PER_PKT / nonZeroDiff;
+  int firingBlockGroup = 1;
+  if (nonZeroDiff > 0) {
+    firingBlockGroup = HDL_FIRING_PER_PKT / nonZeroDiff;
+  }
 
   // Update HasDualReturn in dual and dual plus confidence modes
   if ((currentPacket.isDualModeReturn() || currentPacket.isDPCReturnVLS128()) && !this->HasDualReturn)
