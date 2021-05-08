@@ -1,0 +1,3 @@
+[submodule "Superbuild/common-superbuild"]
+	path = Superbuild/common-superbuild
+	url = https://gitlab.kitware.com/paraview/common-superbuild
