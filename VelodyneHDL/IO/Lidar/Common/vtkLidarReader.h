@@ -44,7 +44,7 @@ public:
    * @brief GetFrame returns the requested frame
    * @param frameNumber beteween 0 and vtkLidarReader::GetNumberOfFrames()
    */
-  virtual vtkSmartPointer<vtkPolyData> GetFrame(int frameNumber);
+  virtual vtkSmartPointer<vtkPolyData> GetFrame(int frameNumber, int numFrames);
 
   /**
    * @brief Open open the pcap file
