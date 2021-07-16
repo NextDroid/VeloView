@@ -141,7 +141,7 @@ void vtkLidarReader::SetFileName(const std::string &filename)
 }
 
 //-----------------------------------------------------------------------------
-vtkSmartPointer<vtkPolyData> vtkLidarReader::GetFrame(int frameNumber)
+vtkSmartPointer<vtkPolyData> vtkLidarReader::GetFrame(int frameNumber, int numFrames)
 {
   this->Interpreter->ResetCurrentFrame();
   if (!this->Reader)
@@ -153,6 +153,16 @@ vtkSmartPointer<vtkPolyData> vtkLidarReader::GetFrame(int frameNumber)
   {
     vtkErrorMacro("Corrections have not been set");
     return 0;
+  }
+  if (!this->Reader->IsOpen())
+  {
+    if (frameNumber == numFrames-1) {
+      vtkWarningMacro(<< "The last frame has less than two packets. We need two.");
+      return this->Interpreter->CreateNewEmptyFrame(0);
+    } else {
+      vtkErrorMacro(<< "Broken packet is in the middle of the pcap file");
+      return 0;
+    }
   }
 
   const u_char* data = 0;
@@ -346,7 +356,7 @@ int vtkLidarReader::RequestData(vtkInformation *vtkNotUsed(request),
 
   //! @todo we should no open the pcap file everytime a frame is requested !!!
   this->Open();
-  output->ShallowCopy(this->GetFrame(frameRequested));
+  output->ShallowCopy(this->GetFrame(frameRequested, INT_MAX));
   this->Close();
 
   vtkTable *t = this->Interpreter->GetCalibrationTable();
